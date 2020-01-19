@@ -5,7 +5,7 @@ package main
 // #include <errno.h>
 //
 // int copyAndFree(char *src, char *dst) {
-//   int result = copyfile(src, dst, NULL, COPYFILE_DATA);
+//   int result = copyfile(src, dst, NULL, COPYFILE_CLONE);
 //   int err = errno;
 //   free(src);
 //   free(dst);
