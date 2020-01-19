@@ -2,16 +2,20 @@ package main
 
 // #include <sys/clonefile.h>
 // #include <stdlib.h>
+// #include <errno.h>
+//
+// int cloneAndFree(char *src, char *dst) {
+//   int result = clonefile(src, dst, 0);
+//   int err = errno;
+//   free(src);
+//   free(dst);
+//   errno = err;
+//   return result;
+// }
 import "C"
-import "unsafe"
 
 func cloneFile(src, dst string) error {
-	csrc := C.CString(src)
-	defer C.free(unsafe.Pointer(csrc))
-	cdst := C.CString(dst)
-	defer C.free(unsafe.Pointer(cdst))
-
-	result, err := C.clonefile(csrc, cdst, 0)
+	result, err := C.cloneAndFree(C.CString(src), C.CString(dst))
 	if result != 0 {
 		return err
 	}

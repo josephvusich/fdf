@@ -2,16 +2,20 @@ package main
 
 // #include <copyfile.h>
 // #include <stdlib.h>
+// #include <errno.h>
+//
+// int copyAndFree(char *src, char *dst) {
+//   int result = copyfile(src, dst, NULL, COPYFILE_DATA);
+//   int err = errno;
+//   free(src);
+//   free(dst);
+//   errno = err;
+//   return result;
+// }
 import "C"
-import "unsafe"
 
 func copyFile(src, dst string) error {
-	csrc := C.CString(src)
-	defer C.free(unsafe.Pointer(csrc))
-	cdst := C.CString(dst)
-	defer C.free(unsafe.Pointer(cdst))
-
-	result, err := C.copyfile(csrc, cdst, nil, C.COPYFILE_DATA)
+	result, err := C.copyAndFree(C.CString(src), C.CString(dst))
 	if result != 0 {
 		return err
 	}
