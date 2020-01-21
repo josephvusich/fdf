@@ -25,6 +25,7 @@ type options struct {
 	DeleteDupes bool
 
 	Recursive bool
+	MinSize   int64
 
 	IgnoreExistingLinks bool
 	Quiet               bool
@@ -56,6 +57,7 @@ func (o *options) ParseArgs() {
 	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "don't show existing hardlinks")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
+	flag.Int64Var(&o.MinSize, "minimum-size", 1, "ignore files smaller than <int> bytes")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
@@ -65,6 +67,8 @@ func (o *options) ParseArgs() {
 	getopt.Alias("q", "quiet")
 	getopt.Alias("t", "dry-run")
 	getopt.Alias("h", "ignore-hardlinks")
+	getopt.Alias("z", "minimum-size")
+
 	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)
 	}

@@ -51,6 +51,7 @@ func (f *scanner) Scan() (err error) {
 	if !f.options.Quiet {
 		f.table.termWidth, _ = terminalWidth()
 	}
+	f.table.minSize = f.options.MinSize
 	f.totals.Start()
 
 	return filepath.Walk(f.table.wd, func(path string, info os.FileInfo, inErr error) error {

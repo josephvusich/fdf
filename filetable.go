@@ -13,6 +13,8 @@ type fileTable struct {
 
 	// -1 == quiet
 	termWidth int
+
+	minSize int64
 }
 
 func (t *fileTable) MatchesBySize(r *fileRecord) []*fileRecord {
@@ -121,7 +123,7 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, areL
 		return nil, nil, false, noErrNotDupe
 	}
 
-	if st.Size() == 0 {
+	if st.Size() < t.minSize {
 		return nil, nil, false, noErrNotDupe
 	}
 
