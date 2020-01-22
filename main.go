@@ -22,7 +22,7 @@ func main() {
 	go func() {
 		sig := <-sigs
 		fmt.Println("\nReceived", sig)
-		fmt.Printf("\n%s\n", scanner.totals.String())
+		fmt.Printf("\n%s\n", scanner.totals.PrettyFormat(scanner.Verb()))
 		scanner.Exit(1)
 	}()
 
@@ -30,5 +30,5 @@ func main() {
 		fmt.Printf("Finished with error: %s", err)
 	}
 
-	fmt.Printf("\033[2K\n%s\n", scanner.totals.String())
+	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.Verb()))
 }

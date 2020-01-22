@@ -18,6 +18,22 @@ const (
 	VerbDelete
 )
 
+func (v verb) PastTense() string {
+	switch v {
+	case VerbNone:
+		return "skipped"
+	case VerbClone:
+		return "cloned"
+	case VerbSplitLinks:
+		return "copied"
+	case VerbMakeLinks:
+		return "hardlinked"
+	case VerbDelete:
+		return "deleted"
+	}
+	return fmt.Sprintf("unknown verb value %d", v)
+}
+
 type options struct {
 	Clone       bool
 	SplitLinks  bool

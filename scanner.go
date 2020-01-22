@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -265,30 +266,36 @@ type total struct {
 	size  uint64
 }
 
-func (t *totals) String() string {
-	return fmt.Sprintf(
-		"%s elapsed\n"+
-			"\n"+
-			"%s unique\n"+
-			"%s as hardlinks\n"+
-			"%s as clones\n"+
-			"%s duplicated\n"+
-			"\n"+
-			"%s processed\n"+
-			"%s skipped\n"+
-			"%s had errors\n"+
-			"\n"+
-			"%s scanned",
-		t.End(),
-		t.Unique.String(),
-		t.Links.String(),
-		t.Cloned.String(),
-		t.Dupes.String(),
-		t.Processed.String(),
-		t.Skipped.String(),
-		t.Errors.String(),
-		t.Files.String(),
-	)
+func (t *totals) PrettyFormat(v verb) string {
+	lines := []string{
+		fmt.Sprintf("%s elapsed", t.End()),
+	}
+
+	for _, x := range []struct {
+		total
+		suffix string
+	}{
+		{t.Files, "scanned"},
+		{t.Unique, "unique"},
+		{t.Links, "as hardlinks"},
+		{t.Cloned, "as clones"},
+		{t.Dupes, "duplicated"},
+		{},
+		{t.Processed, fmt.Sprintf("%s successfully", v.PastTense())},
+		{t.Skipped, "skipped"},
+		{t.Errors, "had errors"},
+	} {
+		if x.count != 0 {
+			lines = append(lines, fmt.Sprintf("%s %s", x.String(), x.suffix))
+		} else if x.suffix == "" {
+			lines = append(lines, "")
+		}
+	}
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (t *total) String() string {
