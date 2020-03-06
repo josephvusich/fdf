@@ -15,14 +15,14 @@ func main() {
 	}
 
 	scanner := newScanner()
-	scanner.ParseArgs()
+	scanner.options.ParseArgs()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
 		fmt.Println("\nReceived", sig)
-		fmt.Printf("\n%s\n", scanner.totals.PrettyFormat(scanner.Verb()))
+		fmt.Printf("\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
 		scanner.Exit(1)
 	}()
 
@@ -30,5 +30,5 @@ func main() {
 		fmt.Printf("Finished with error: %s", err)
 	}
 
-	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.Verb()))
+	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
 }

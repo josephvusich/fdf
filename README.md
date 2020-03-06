@@ -18,7 +18,7 @@ Clone this repository with `go get -u` and then `go install`.
 
 ## Usage
 ```
-fdf [-a | -c | -d | -l] [-thqr] [-z min-size]
+fdf [-a | -c | -d | -l] [-thqr] [-m match-mode] [-z min-size]
   -a, --clone
     	(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
   -c, --copy
@@ -33,6 +33,8 @@ fdf [-a | -c | -d | -l] [-thqr] [-z min-size]
     	don't show existing hardlinks
   -l, --link
     	(verb) hardlink duplicate files
+  -m, --match string
+    	< content | name+content | name+size | name | size > (default "content")
   -z, --minimum-size int
     	ignore files smaller than <int> bytes (default 1)
   -q, --quiet

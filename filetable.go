@@ -4,59 +4,28 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-type fileTable struct {
-	bySize     map[int64][]*fileRecord
-	byChecksum map[checksum][]*fileRecord
-	wd         string
+type recordSet map[*fileRecord]struct{}
 
-	// -1 == quiet
+type fileTable struct {
+	wd string
+
+	db *db
+
+	// 0 == quiet, -1 == error/not a terminal
 	termWidth int
 
 	options *options
+	totals  *totals
 }
 
-func (t *fileTable) MatchesBySize(r *fileRecord) []*fileRecord {
-	return t.bySize[r.Size()]
-}
-
-// First pass avoids checksumming files if a matching checksum is already found
-// If false, one new file (if any) will be checksummed and returned. Repeat until empty list
-// This allows lazy checksumming for the first file of a given size, or if all files of a
-// given size are hardlinks already
-func (t *fileTable) MatchesByChecksum(r *fileRecord, firstPass bool) []*fileRecord {
-	if !t.Checksum(r) {
-		return nil
-	}
-
-	if firstPass {
-		return t.byChecksum[r.Checksum]
-	}
-
-	sameSize := t.MatchesBySize(r)
-	for _, other := range sameSize {
-		if !other.HasChecksum {
-			if !t.Checksum(other) {
-				continue
-			}
-
-			t.byChecksum[other.Checksum] = append(t.byChecksum[other.Checksum], other)
-
-			if r.Checksum == other.Checksum {
-				return []*fileRecord{other}
-			}
-		}
-	}
-
-	return nil
-}
-
-func newFileTable(o *options) *fileTable {
+func newFileTable(o *options, t *totals) *fileTable {
 	return &fileTable{
-		bySize:     map[int64][]*fileRecord{},
-		byChecksum: map[checksum][]*fileRecord{},
-		options:    o,
+		db:      newDB(),
+		options: o,
+		totals:  t,
 	}
 }
 
@@ -66,13 +35,18 @@ type checksum struct {
 }
 
 type fileRecord struct {
-	FilePath string
-	RelPath  string
+	FilePath   string
+	RelPath    string
+	FoldedName string
 	os.FileInfo
 
 	HasChecksum    bool
-	FailedChecksum bool
+	FailedChecksum error
 	Checksum       checksum
+}
+
+func foldName(filePath string) string {
+	return strings.ToLower(filepath.Base(filePath))
 }
 
 func (r *fileRecord) String() string {
@@ -81,9 +55,10 @@ func (r *fileRecord) String() string {
 
 func newFileRecord(path string, info os.FileInfo, relPath string) *fileRecord {
 	return &fileRecord{
-		FilePath: path,
-		RelPath:  relPath,
-		FileInfo: info,
+		FilePath:   path,
+		RelPath:    relPath,
+		FoldedName: foldName(path),
+		FileInfo:   info,
 	}
 }
 
@@ -114,53 +89,119 @@ func (t *fileTable) progress(s string, makeRelPath bool) {
 	fmt.Printf("\033[2K%s\r", s)
 }
 
-func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, areLinked bool, err error) {
+type matchFlag uint
+
+const (
+	matchNothing  matchFlag = 0b0000000000000000                // default value, usually replaced with matchContent
+	matchName     matchFlag = 0b0000000000000001                // case-insensitive
+	matchSize     matchFlag = 0b0000000000000010                // implied by matchContent and matchHardlink
+	matchContent            = 0b0000000000000100 | matchSize    // implied by matchHardlink
+	matchHardlink           = 0b0000000000001000 | matchContent // used by --copy and for categorization
+	fileIsIgnored matchFlag = 0b1000000000000000                // status returned for directories
+	fileIsSkipped matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
+	fileIsUnique  matchFlag = 0b0010000000000000                // no match found
+)
+
+func (m matchFlag) has(flag matchFlag) bool {
+	return m&flag == flag
+}
+
+func (m matchFlag) Error() string {
+	return fmt.Sprintf("MatchType<0b%b>", m)
+}
+
+func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, err error) {
 	st, err := os.Stat(f)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, err
 	}
 
 	if st.IsDir() {
-		return nil, nil, false, noErrNotDupe
+		return nil, nil, fileIsIgnored
 	}
 
 	if st.Size() < t.options.MinSize() {
-		return nil, nil, false, noErrNotDupe
+		return nil, nil, fileIsSkipped
 	}
 
 	current = newFileRecord(f, st, t.Rel(f))
 
-	if sameSize := t.MatchesBySize(current); len(sameSize) != 0 {
+	q := &query{}
+	if t.options.MatchMode.has(matchName) {
+		current.byName(q)
+	}
+	if t.options.MatchMode.has(matchSize) {
+		current.bySize(q)
+	}
+	// Ignore checksums for now, as hardlinks can match content without the overhead of comparison
 
-		for _, other := range sameSize {
-			if os.SameFile(current.FileInfo, other.FileInfo) {
-				return other, current, true, nil
-			}
+	// Query for any known files that match all desired fields (except content/checksum)
+	candidates := t.db.query(q)
+
+	// If there is a matching hardlink, skip further checking
+	// Name is the only non-hardlink-included field
+	for other := range candidates {
+		if os.SameFile(current.FileInfo, other.FileInfo) {
+			return other, current, t.options.MatchMode | matchHardlink
 		}
+	}
 
-		for firstPass := true; ; firstPass = false {
-			sameChecksum := t.MatchesByChecksum(current, firstPass)
+	// --copy is not interested in non-hardlinks
+	if t.options.MatchMode.has(matchHardlink) {
+		t.db.insert(current)
+		return current, current, fileIsUnique
+	}
 
-			if len(sameChecksum) == 0 && !firstPass {
-				break
-			}
+	// If matching content is not important, return random valid match, if any
+	if !t.options.MatchMode.has(matchContent) {
+		for other := range candidates {
+			return other, current, t.options.MatchMode
+		}
+	}
 
-			for _, other := range sameChecksum {
-				if equalFiles(current, other, t.options.SkipHeader) {
-					return other, current, false, nil
-				}
+	// If we get here, we're matching content and no hardlink was found
+	// First we check any existing checksum matches for full equality
+	if current.HasChecksum {
+		current.byChecksum(q)
+		existingChecksums := t.db.query(q)
+
+		for other := range existingChecksums {
+			if equalFiles(current, other, t.options.SkipHeader) {
+				return other, current, t.options.MatchMode
 			}
 		}
 	}
 
-	t.insert(current)
-	return current, current, false, nil
+	if other := t.checkCandidates(current, candidates); other != nil {
+		return other, current, t.options.MatchMode
+	}
+
+	t.db.insert(current)
+	return current, current, fileIsUnique
 }
 
-// Does not do duplicate checking
-func (t *fileTable) insert(r *fileRecord) {
-	t.bySize[r.Size()] = append(t.bySize[r.Size()], r)
-	if r.HasChecksum {
-		t.byChecksum[r.Checksum] = append(t.byChecksum[r.Checksum], r)
+func (t *fileTable) checkCandidates(current *fileRecord, candidates recordSet) (other *fileRecord) {
+	// If there were no checksum matches, we need to look at any otherwise-matching files with no checksum yet
+	if len(candidates) == 0 {
+		return nil
 	}
+
+	if err := t.Checksum(current, false); err != nil {
+		// We might still find a hardlink match later, even without deep comparison
+		return nil
+	}
+
+	// Already-checksummed files will have been found and eliminated via the index already
+	// We only want to consider files that have not yet been checksummed
+	for other := range candidates {
+		if err := t.Checksum(other, true); err != nil {
+			continue
+		}
+
+		if other.Checksum == current.Checksum && equalFiles(current, other, t.options.SkipHeader) {
+			return other
+		}
+	}
+
+	return nil
 }

@@ -22,14 +22,14 @@ type scanner struct {
 		Destructive sync.RWMutex
 	}
 
-	table *fileTable
-	options
-	totals
+	table   *fileTable
+	options options
+	totals  totals
 }
 
 func newScanner() *scanner {
 	s := &scanner{}
-	s.table = newFileTable(&s.options)
+	s.table = newFileTable(&s.options, &s.totals)
 	return s
 }
 
@@ -47,6 +47,9 @@ func (f *scanner) Scan() (err error) {
 	f.table.wd, err = os.Getwd()
 	if err != nil {
 		return err
+	}
+	if f.options.MatchMode == 0 {
+		return errors.New("MatchMode not specified in options")
 	}
 	if !f.options.Quiet {
 		f.table.termWidth, _ = terminalWidth()
@@ -94,10 +97,12 @@ func (f *scanner) Scan() (err error) {
 		if err == nil {
 			fmt.Printf(" success\n")
 			f.totals.Processed.Add(current)
-		} else if err == noErrSkipped {
-			fmt.Printf(" skipped\n")
+		} else if err == noErrDryRun || err == fileIsSkipped {
+			if err == noErrDryRun {
+				fmt.Printf(" skipped\n")
+			}
 			f.totals.Skipped.Add(current)
-		} else if err != noErrNotDupe {
+		} else if err != fileIsIgnored {
 			f.totals.Errors.Add(current)
 			if current != nil {
 				fmt.Printf(" %s: %s\n", current.RelPath, err)
@@ -111,31 +116,33 @@ func (f *scanner) Scan() (err error) {
 }
 
 var (
-	noErrSkipped = errors.New("skipped")
-	noErrNotDupe = errors.New("nothing")
+	// Used as a special status for dry-runs
+	// Files skipped for other reasons should use fileIsSkipped
+	noErrDryRun = errors.New("skipped")
 )
 
 func (f *scanner) execute(path string) (current *fileRecord, err error) {
-	match, current, areLinked, err := f.table.find(path)
+	match, current, err := f.table.find(path)
 
 	if current != nil {
 		f.totals.Files.Add(current)
 	}
 
-	if err != nil {
+	m, ok := err.(matchFlag)
+	if !ok || m == fileIsIgnored || m == fileIsSkipped {
 		return current, err
 	}
 
-	if match == current || match.FilePath == current.FilePath {
+	if m == fileIsUnique || match == current || match.FilePath == current.FilePath {
 		f.totals.Unique.Add(current)
-		return current, noErrNotDupe
+		return current, fileIsIgnored
 	}
 
 	comparison := "=="
-	if areLinked {
+	if m.has(matchHardlink) {
 		f.totals.Links.Add(current)
 		if f.options.IgnoreExistingLinks {
-			return current, noErrNotDupe
+			return current, fileIsIgnored
 		}
 		comparison = "<=>"
 	} else {
@@ -146,7 +153,7 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 
 	verb := f.options.Verb()
 	if verb == VerbNone {
-		return current, noErrNotDupe
+		return current, fileIsIgnored
 	}
 
 	f.Mutex.Destructive.RLock()
@@ -157,11 +164,11 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 	case VerbDelete:
 		fmt.Printf("  delete( %s )", current.RelPath)
 		if f.options.DryRun {
-			return current, noErrSkipped
+			return current, noErrDryRun
 		}
 		err = os.Remove(current.FilePath)
 		if err == nil {
-			if areLinked {
+			if m.has(matchHardlink) {
 				f.totals.Links.Remove(current)
 			} else {
 				f.totals.Dupes.Remove(current)
@@ -172,21 +179,21 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 		x := "clone"
 		a := cloneFile
 		if verb == VerbMakeLinks {
-			if areLinked {
-				return current, noErrNotDupe
+			if m.has(matchHardlink) {
+				return current, fileIsIgnored
 			}
 			x = "hardlink"
 			a = os.Link
 		} else if verb == VerbSplitLinks {
-			if !areLinked {
-				return current, noErrNotDupe
+			if !m.has(matchHardlink) {
+				return current, fileIsIgnored
 			}
 			x = "copy"
 			a = copyFile
 		}
 		fmt.Printf("  %s( %s => %s )", x, match.RelPath, current.RelPath)
 		if f.options.DryRun {
-			return current, noErrSkipped
+			return current, noErrDryRun
 		}
 		for retry := 0; retry < 3; retry++ {
 			tmp, err := tempName(current)
@@ -202,29 +209,28 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 				return current, fmt.Errorf("%s: %w", f.table.Rel(tmp), err)
 			}
 
-			err = os.Rename(tmp, current.FilePath)
-			if err == nil {
+			if err = os.Rename(tmp, current.FilePath); err == nil {
 				switch verb {
 				case VerbMakeLinks:
 					f.totals.Dupes.Remove(current)
-					f.totals.Links.Add(current)
+					f.totals.Links.Add(match)
 				case VerbSplitLinks:
 					f.totals.Links.Remove(current)
 					f.totals.Dupes.Add(current)
 				case VerbClone:
-					if areLinked {
+					if m.has(matchHardlink) {
 						f.totals.Links.Remove(current)
 					} else {
 						f.totals.Dupes.Remove(current)
 					}
-					f.totals.Cloned.Add(current)
+					f.totals.Cloned.Add(match)
 				}
 			}
 			return current, err
 		}
 	}
 
-	return current, noErrNotDupe
+	return current, fileIsIgnored
 }
 
 func tempName(r *fileRecord) (string, error) {
