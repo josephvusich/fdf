@@ -41,7 +41,9 @@ type options struct {
 	DeleteDupes bool
 
 	Recursive bool
-	MinSize   int64
+
+	minSize    int64
+	SkipHeader int64
 
 	IgnoreExistingLinks bool
 	Quiet               bool
@@ -63,6 +65,13 @@ func (o *options) Verb() verb {
 	return VerbNone
 }
 
+func (o *options) MinSize() int64 {
+	if o.SkipHeader > 0 && o.SkipHeader+1 > o.minSize {
+		return o.SkipHeader + 1
+	}
+	return o.minSize
+}
+
 func (o *options) ParseArgs() {
 	flag.BoolVar(&o.Clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	flag.BoolVar(&o.SplitLinks, "copy", false, "(verb) split existing links via copy")
@@ -73,7 +82,8 @@ func (o *options) ParseArgs() {
 	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "don't show existing hardlinks")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
-	flag.Int64Var(&o.MinSize, "minimum-size", 1, "ignore files smaller than <int> bytes")
+	flag.Int64Var(&o.minSize, "minimum-size", 1, "ignore files smaller than <int> bytes")
+	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip <int> header bytes when comparing content, implies --minimum-size N+1")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
@@ -84,6 +94,7 @@ func (o *options) ParseArgs() {
 	getopt.Alias("t", "dry-run")
 	getopt.Alias("h", "ignore-hardlinks")
 	getopt.Alias("z", "minimum-size")
+	getopt.Alias("n", "skip-header")
 
 	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)

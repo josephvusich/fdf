@@ -16,7 +16,7 @@ func TestScanner_NoVerb(t *testing.T) {
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
 		scanner.options.Recursive = true
-		scanner.options.MinSize = 1
+		scanner.options.minSize = 1
 
 		assert.NoError(scanner.Scan())
 		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
@@ -45,7 +45,6 @@ func TestScanner_LinkUnlink(t *testing.T) {
 		scanner := newScanner()
 		scanner.options.MakeLinks = true
 		scanner.options.Recursive = true
-		scanner.options.MinSize = 0
 
 		assert.NoError(scanner.Scan())
 		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
@@ -85,7 +84,6 @@ func TestScanner_LinkUnlink(t *testing.T) {
 		scanner = newScanner()
 		scanner.options.SplitLinks = true
 		scanner.options.Recursive = true
-		scanner.options.MinSize = 0
 
 		assert.NoError(scanner.Scan())
 		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
@@ -130,7 +128,6 @@ func TestScanner_Clone(t *testing.T) {
 		scanner := newScanner()
 		scanner.options.Clone = true
 		scanner.options.Recursive = true
-		scanner.options.MinSize = 0
 
 		assert.NoError(scanner.Scan())
 		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
@@ -148,6 +145,38 @@ func TestScanner_Clone(t *testing.T) {
 		assert.Equal(uint64(40), scanner.totals.Processed.size)
 		assert.Equal(uint64(0), scanner.totals.Errors.count)
 		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		validate(l)
+	})
+}
+
+func TestScanner_SkipHeader(t *testing.T) {
+	assert := require.New(t)
+	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
+		scanner := newScanner()
+		scanner.options.MakeLinks = true
+		scanner.options.Recursive = true
+		scanner.options.SkipHeader = 3
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(14), scanner.totals.Files.count)
+		assert.Equal(uint64(58), scanner.totals.Files.size)
+		assert.Equal(uint64(2), scanner.totals.Unique.count)
+		assert.Equal(uint64(9), scanner.totals.Unique.size)
+		assert.Equal(uint64(12), scanner.totals.Links.count)
+		assert.Equal(uint64(49), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		assert.Equal(uint64(0), scanner.totals.Dupes.size)
+		assert.Equal(uint64(12), scanner.totals.Processed.count)
+		assert.Equal(uint64(49), scanner.totals.Processed.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		l.content["foo1"] = l.content["bar1"]
+		l.content["foo2"] = l.content["bar1"]
+		l.content["foo3"] = l.content["bar1"]
+		l.different[1] = l.different[0]
 		validate(l)
 	})
 }

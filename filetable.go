@@ -14,7 +14,7 @@ type fileTable struct {
 	// -1 == quiet
 	termWidth int
 
-	minSize int64
+	options *options
 }
 
 func (t *fileTable) MatchesBySize(r *fileRecord) []*fileRecord {
@@ -52,10 +52,11 @@ func (t *fileTable) MatchesByChecksum(r *fileRecord, firstPass bool) []*fileReco
 	return nil
 }
 
-func newFileTable() *fileTable {
+func newFileTable(o *options) *fileTable {
 	return &fileTable{
 		bySize:     map[int64][]*fileRecord{},
 		byChecksum: map[checksum][]*fileRecord{},
+		options:    o,
 	}
 }
 
@@ -123,7 +124,7 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, areL
 		return nil, nil, false, noErrNotDupe
 	}
 
-	if st.Size() < t.minSize {
+	if st.Size() < t.options.MinSize() {
 		return nil, nil, false, noErrNotDupe
 	}
 
@@ -145,7 +146,7 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, areL
 			}
 
 			for _, other := range sameChecksum {
-				if equalFiles(current, other) {
+				if equalFiles(current, other, t.options.SkipHeader) {
 					return other, current, false, nil
 				}
 			}

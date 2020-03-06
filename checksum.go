@@ -47,6 +47,14 @@ func (t *fileTable) Checksum(r *fileRecord) bool {
 	}
 	defer f.Close()
 
+	if t.options.SkipHeader > 0 {
+		if _, err = f.Seek(t.options.SkipHeader, io.SeekStart); err != nil {
+			r.FailedChecksum = true
+			fmt.Printf("%s: %s\n", r.RelPath, err)
+			return false
+		}
+	}
+
 	b, err := hwhChecksum(f)
 	if err != nil {
 		r.FailedChecksum = true

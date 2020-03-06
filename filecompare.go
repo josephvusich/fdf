@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func equalFiles(r1, r2 *fileRecord) bool {
+func equalFiles(r1, r2 *fileRecord, skipHeader int64) bool {
 	f1, err := os.Open(r1.FilePath)
 	if err != nil {
 		return false
@@ -18,6 +18,14 @@ func equalFiles(r1, r2 *fileRecord) bool {
 		return false
 	}
 	defer f2.Close()
+
+	if skipHeader > 0 {
+		for _, f := range []*os.File{f1, f2} {
+			if _, err = f.Seek(skipHeader, io.SeekStart); err != nil {
+				return false
+			}
+		}
+	}
 
 	return equalReaders(f1, f2)
 }

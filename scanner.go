@@ -28,9 +28,9 @@ type scanner struct {
 }
 
 func newScanner() *scanner {
-	return &scanner{
-		table: newFileTable(),
-	}
+	s := &scanner{}
+	s.table = newFileTable(&s.options)
+	return s
 }
 
 // Don't display warnings for these dotfiles
@@ -51,7 +51,6 @@ func (f *scanner) Scan() (err error) {
 	if !f.options.Quiet {
 		f.table.termWidth, _ = terminalWidth()
 	}
-	f.table.minSize = f.options.MinSize
 	f.totals.Start()
 
 	return filepath.Walk(f.table.wd, func(path string, info os.FileInfo, inErr error) error {
