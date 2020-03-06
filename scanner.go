@@ -42,7 +42,6 @@ var silentSkip = map[string]struct{}{
 	".Trashes":                {},
 	".fseventsd":              {},
 }
-var skipErr = errors.New("skipping dot prefix")
 
 func (f *scanner) Scan() (err error) {
 	f.table.wd, err = os.Getwd()
@@ -66,7 +65,9 @@ func (f *scanner) Scan() (err error) {
 					fmt.Printf("%s: %s\n", path, inErr)
 					return nil
 				}
-				fmt.Printf("%s: skipping dot prefix\n", path)
+				if !f.options.Quiet {
+					fmt.Printf("%s: skipping dot-prefix\n", path)
+				}
 			}
 			if inErr == nil && typ.IsDir() {
 				return filepath.SkipDir
