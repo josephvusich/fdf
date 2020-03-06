@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"rsc.io/getopt"
 )
@@ -35,10 +36,12 @@ func (v verb) PastTense() string {
 }
 
 type options struct {
-	Clone       bool
-	SplitLinks  bool
-	MakeLinks   bool
-	DeleteDupes bool
+	clone       bool
+	splitLinks  bool
+	makeLinks   bool
+	deleteDupes bool
+
+	MatchMode matchFlag
 
 	Recursive bool
 
@@ -51,15 +54,39 @@ type options struct {
 	Help                bool
 }
 
+// TODO add mod time
+func parseMatchSpec(matchSpec string, v verb) (f matchFlag, err error) {
+	if matchSpec == "" {
+		matchSpec = "content"
+	}
+	modes := strings.Split(matchSpec, "+")
+	for _, m := range modes {
+		switch m {
+		case "content":
+			f |= matchContent
+		case "name":
+			f |= matchName
+		case "size":
+			f |= matchSize
+		default:
+			return f, fmt.Errorf("invalid field: %s", m)
+		}
+	}
+	if v == VerbSplitLinks {
+		f |= matchHardlink
+	}
+	return
+}
+
 func (o *options) Verb() verb {
 	switch true {
-	case o.MakeLinks:
+	case o.makeLinks:
 		return VerbMakeLinks
-	case o.Clone:
+	case o.clone:
 		return VerbClone
-	case o.SplitLinks:
+	case o.splitLinks:
 		return VerbSplitLinks
-	case o.DeleteDupes:
+	case o.deleteDupes:
 		return VerbDelete
 	}
 	return VerbNone
@@ -73,17 +100,18 @@ func (o *options) MinSize() int64 {
 }
 
 func (o *options) ParseArgs() {
-	flag.BoolVar(&o.Clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
-	flag.BoolVar(&o.SplitLinks, "copy", false, "(verb) split existing links via copy")
+	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
+	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing links via copy")
 	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
-	flag.BoolVar(&o.MakeLinks, "link", false, "(verb) hardlink duplicate files")
-	flag.BoolVar(&o.DeleteDupes, "delete", false, "(verb) delete duplicate files")
+	flag.BoolVar(&o.makeLinks, "link", false, "(verb) hardlink duplicate files")
+	flag.BoolVar(&o.deleteDupes, "delete", false, "(verb) delete duplicate files")
 	flag.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
 	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "don't show existing hardlinks")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
-	flag.Int64Var(&o.minSize, "minimum-size", 1, "ignore files smaller than <int> bytes")
+	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than <int> bytes")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip <int> header bytes when comparing content, implies --minimum-size N+1")
+	matchSpec := flag.String("match", "content", "< content | name+content | name+size | name | size >")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
@@ -94,11 +122,19 @@ func (o *options) ParseArgs() {
 	getopt.Alias("t", "dry-run")
 	getopt.Alias("h", "ignore-hardlinks")
 	getopt.Alias("z", "minimum-size")
+	getopt.Alias("m", "match")
 	getopt.Alias("n", "skip-header")
 
 	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)
 	}
+
+	var err error
+	if o.MatchMode, err = parseMatchSpec(*matchSpec, o.Verb()); err != nil {
+		fmt.Println("Invalid --match parameter:", err)
+		o.Help = true
+	}
+
 	if o.Help {
 		fmt.Println("Latest version can be found at https://github.com/josephvusich/fdf")
 		flag.Usage()
