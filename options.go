@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"rsc.io/getopt"
+	"github.com/josephvusich/go-getopt"
 )
 
 type verb int
@@ -101,17 +101,17 @@ func (o *options) MinSize() int64 {
 
 func (o *options) ParseArgs() {
 	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
-	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing links via copy")
+	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
 	flag.BoolVar(&o.makeLinks, "link", false, "(verb) hardlink duplicate files")
 	flag.BoolVar(&o.deleteDupes, "delete", false, "(verb) delete duplicate files")
 	flag.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
-	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "don't show existing hardlinks")
+	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
-	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than <int> bytes")
-	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip <int> header bytes when comparing content, implies --minimum-size N+1")
-	matchSpec := flag.String("match", "content", "< content | name+content | name+size | name | size >")
+	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
+	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
+	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n  name (case insensitive)\n  size\n  content (default, also implies size)\nspecify multiple fields using '+', e.g.: name+content")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
@@ -132,6 +132,11 @@ func (o *options) ParseArgs() {
 	var err error
 	if o.MatchMode, err = parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
+		o.Help = true
+	}
+
+	if o.Verb() == VerbSplitLinks && o.IgnoreExistingLinks {
+		fmt.Println("Invalid flag combination: --copy and --ignore-hardlinks are mutually exclusive")
 		o.Help = true
 	}
 
