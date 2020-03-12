@@ -18,29 +18,26 @@ Clone this repository with `go get -u` and then `go install`.
 
 ## Usage
 ```
-fdf [-a | -c | -d | -l] [-thqr] [-m match-mode] [-z min-size]
-  -a, --clone
-    	(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
-  -c, --copy
-    	(verb) split existing links via copy
-  -d, --delete
-    	(verb) delete duplicate files
-  -t, --dry-run
-    	don't actually do anything, just show what would be done
-      --help
-    	show this help screen and exit
-  -h, --ignore-hardlinks
-    	don't show existing hardlinks
-  -l, --link
-    	(verb) hardlink duplicate files
-  -m, --match string
-    	< content | name+content | name+size | name | size > (default "content")
-  -z, --minimum-size int
-    	ignore files smaller than <int> bytes (default 1)
-  -q, --quiet
-    	don't display current filename during scanning
-  -r, --recursive
-    	traverse subdirectories
+fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES]
+  -a, --clone               (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
+  -c, --copy                (verb) split existing hardlinks via copy
+                            mutually exclusive with --ignore-hardlinks
+  -d, --delete              (verb) delete duplicate files
+  -t, --dry-run             don't actually do anything, just show what would be done
+      --help                show this help screen and exit
+  -h, --ignore-hardlinks    ignore existing hardlinks
+                            mutually exclusive with --copy
+  -l, --link                (verb) hardlink duplicate files
+  -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
+                              name (case insensitive)
+                              size
+                              content (default, also implies size)
+                            specify multiple fields using '+', e.g.: name+content
+  -z, --minimum-size BYTES  skip files smaller than BYTES (default 1)
+  -q, --quiet               don't display current filename during scanning
+  -r, --recursive           traverse subdirectories
+  -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
+                            implies --minimum-size LENGTH+1
 ```
 
 ## Copy-on-write Cloning
