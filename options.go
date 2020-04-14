@@ -59,7 +59,7 @@ func parseMatchSpec(matchSpec string, v verb) (f matchFlag, err error) {
 	if matchSpec == "" {
 		matchSpec = "content"
 	}
-	modes := strings.Split(matchSpec, "+")
+	modes := strings.Split(strings.ToLower(matchSpec), "+")
 	for _, m := range modes {
 		switch m {
 		case "content":
