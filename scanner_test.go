@@ -72,7 +72,7 @@ func TestScanner_LinkUnlink(t *testing.T) {
 
 		// Validate hardlink behavior
 		func() {
-			f, err := os.OpenFile(filepath.Join(l.dirs[0], "bar1.f"), os.O_WRONLY, 0666)
+			f, err := os.OpenFile(filepath.Join(l.dirs[0], "bar"), os.O_WRONLY, 0666)
 			assert.NoError(err)
 			defer f.Close()
 			_, err = f.Seek(0, io.SeekStart)
@@ -80,7 +80,7 @@ func TestScanner_LinkUnlink(t *testing.T) {
 			assert.NoError(f.Truncate(0))
 			_, err = f.WriteString("hello world")
 			assert.NoError(err)
-			l.content["bar1"] = "hello world"
+			l.content["bar"] = "hello world"
 			l.content["bar2"] = "hello world"
 			l.content["bar3"] = "hello world"
 		}()
@@ -115,7 +115,7 @@ func TestScanner_LinkUnlink(t *testing.T) {
 		// Validate hardlink split
 		for i := 0; i <= 1; i++ {
 			func(i int) {
-				f, err := os.OpenFile(filepath.Join(l.dirs[i], "bar1.f"), os.O_WRONLY, 0666)
+				f, err := os.OpenFile(filepath.Join(l.dirs[i], "bar"), os.O_WRONLY, 0666)
 				assert.NoError(err)
 				defer f.Close()
 				_, err = f.Seek(0, io.SeekStart)
@@ -125,7 +125,7 @@ func TestScanner_LinkUnlink(t *testing.T) {
 				assert.NoError(err)
 			}(i)
 		}
-		l.content["bar1"] = "goodbye world"
+		l.content["bar"] = "goodbye world"
 		validate(l)
 	})
 }
@@ -224,6 +224,61 @@ func TestScanner_NameContent(t *testing.T) {
 	})
 }
 
+func TestScanner_CopyNameContent(t *testing.T) {
+	assert := require.New(t)
+
+	l := &testLayout{
+		dirs: []string{
+			"./a",
+			"./b",
+		},
+		content: map[string]string{
+			"bar":         "bar\n",
+			"Copy of bar": "bar\n",
+			"bar (1)":     "bar\n",
+			"bar-01":      "bar\n",
+			"foo":         "bar\n",
+			"bar.foo":     "bar\n",
+		},
+		diffContent: []string{
+			"fizz\n",
+			"buzz\n",
+		},
+		diffSize: []string{
+			"foobar\n",
+			"foobar2\n",
+		},
+	}
+
+	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+		// Phase 1: Hardlink
+		scanner := newScanner()
+		scanner.options.MatchMode = matchCopyName | matchContent
+		scanner.options.makeLinks = true
+		scanner.options.Recursive = true
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(16), scanner.totals.Files.count)
+		assert.Equal(uint64(73), scanner.totals.Files.size)
+		assert.Equal(uint64(7), scanner.totals.Unique.count)
+		assert.Equal(uint64(37), scanner.totals.Unique.size)
+		assert.Equal(uint64(9), scanner.totals.Links.count)
+		assert.Equal(uint64(36), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		assert.Equal(uint64(0), scanner.totals.Dupes.size)
+		assert.Equal(uint64(9), scanner.totals.Processed.count)
+		assert.Equal(uint64(36), scanner.totals.Processed.size)
+		assert.Equal(uint64(0), scanner.totals.Skipped.count)
+		assert.Equal(uint64(0), scanner.totals.Skipped.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		validate(l)
+	})
+}
+
 func TestScanner_NameOnly(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
@@ -286,9 +341,9 @@ func TestScanner_SizeOnly(t *testing.T) {
 		assert.Equal(uint64(0), scanner.totals.Skipped.size)
 		assert.Equal(uint64(0), scanner.totals.Errors.count)
 		assert.Equal(uint64(0), scanner.totals.Errors.size)
-		l.content["foo1"] = l.content["bar1"]
-		l.content["foo2"] = l.content["bar1"]
-		l.content["foo3"] = l.content["bar1"]
+		l.content["foo"] = l.content["bar"]
+		l.content["foo2"] = l.content["bar"]
+		l.content["foo3"] = l.content["bar"]
 		l.diffContent[1] = l.diffContent[0]
 		validate(l)
 	})
@@ -321,9 +376,9 @@ func TestScanner_SkipHeader(t *testing.T) {
 		assert.Equal(uint64(0), scanner.totals.Skipped.size)
 		assert.Equal(uint64(0), scanner.totals.Errors.count)
 		assert.Equal(uint64(0), scanner.totals.Errors.size)
-		l.content["foo1"] = l.content["bar1"]
-		l.content["foo2"] = l.content["bar1"]
-		l.content["foo3"] = l.content["bar1"]
+		l.content["foo"] = l.content["bar"]
+		l.content["foo2"] = l.content["bar"]
+		l.content["foo3"] = l.content["bar"]
 		l.diffContent[1] = l.diffContent[0]
 		validate(l)
 	})
@@ -343,24 +398,19 @@ type testLayout struct {
 }
 
 func setupTest(assert *require.Assertions, f func(l *testLayout, validate func(*testLayout))) {
-	dir, err := ioutil.TempDir("", "fdftest")
-	assert.NoError(err)
-	defer os.RemoveAll(dir)
-	assert.NoError(os.Chdir(dir))
-
 	l := &testLayout{
 		dirs: []string{
 			"./a",
 			"./b",
 		},
 		content: map[string]string{
-			"bar1":   "bar\n",
+			"bar":    "bar\n",
 			"bar2":   "bar\n",
 			"bar3":   "bar\n",
-			"foo1":   "foo\n",
+			"foo":    "foo\n",
 			"foo2":   "foo\n",
 			"foo3":   "foo\n",
-			"empty1": "",
+			"empty":  "",
 			"empty2": "",
 			"empty3": "",
 		},
@@ -373,31 +423,47 @@ func setupTest(assert *require.Assertions, f func(l *testLayout, validate func(*
 			"foobar2\n",
 		},
 	}
+	setupTestLayout(assert, l, f)
+}
+
+func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLayout, validate func(*testLayout))) {
+	dir, err := ioutil.TempDir("", "fdftest")
+	assert.NoError(err)
+	defer os.RemoveAll(dir)
+	assert.NoError(os.Chdir(dir))
 
 	for i, d := range l.dirs {
 		assert.NoError(os.Mkdir(d, 0777))
 		for f, c := range l.content {
-			assert.NoError(ioutil.WriteFile(filepath.Join(d, fmt.Sprintf("%s.f", f)), []byte(c), 0666))
+			assert.NoError(ioutil.WriteFile(filepath.Join(d, fmt.Sprintf("%s", f)), []byte(c), 0666))
 		}
-		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffContent.f"), []byte(l.diffContent[i]), 0666))
-		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffSize.f"), []byte(l.diffSize[i]), 0666))
+		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffContent"), []byte(l.diffContent[i]), 0666))
+		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffSize"), []byte(l.diffSize[i]), 0666))
 	}
 
 	f(l, func(l *testLayout) {
-		g, err := filepath.Glob("./**/*.f")
+		glob, err := filepath.Glob("./**/*")
+		var g []string
+		for _, x := range glob {
+			st, err := os.Stat(x)
+			assert.NoError(err)
+			if !st.IsDir() {
+				g = append(g, x)
+			}
+		}
 		assert.NoError(err)
 		assert.Len(g, (len(l.dirs)*len(l.content))+len(l.diffContent)+len(l.diffSize))
 
 		for i, d := range l.dirs {
 			for f, c := range l.content {
-				b, err := ioutil.ReadFile(filepath.Join(d, fmt.Sprintf("%s.f", f)))
+				b, err := ioutil.ReadFile(filepath.Join(d, fmt.Sprintf("%s", f)))
 				assert.NoError(err)
 				assert.Equalf(c, string(b), "%s", f)
 			}
-			b, err := ioutil.ReadFile(filepath.Join(d, "diffContent.f"))
+			b, err := ioutil.ReadFile(filepath.Join(d, "diffContent"))
 			assert.NoError(err)
 			assert.Equal(l.diffContent[i], string(b))
-			b, err = ioutil.ReadFile(filepath.Join(d, "diffSize.f"))
+			b, err = ioutil.ReadFile(filepath.Join(d, "diffSize"))
 			assert.NoError(err)
 			assert.Equal(l.diffSize[i], string(b))
 		}

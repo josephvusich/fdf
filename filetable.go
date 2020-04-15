@@ -97,6 +97,7 @@ const (
 	matchSize     matchFlag = 0b0000000000000010                // implied by matchContent and matchHardlink
 	matchContent            = 0b0000000000000100 | matchSize    // implied by matchHardlink
 	matchHardlink           = 0b0000000000001000 | matchContent // used by --copy and for categorization
+	matchCopyName           = 0b0000000000010000                // one filename must contain the other, e.g., "foo" and "foo copy (1)"
 	fileIsIgnored matchFlag = 0b1000000000000000                // status returned for directories
 	fileIsSkipped matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
 	fileIsUnique  matchFlag = 0b0010000000000000                // no match found
@@ -137,6 +138,17 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, err 
 
 	// Query for any known files that match all desired fields (except content/checksum)
 	candidates := t.db.query(q)
+
+	// If copyname mode is active, filter down the candidate list
+	if t.options.MatchMode.has(matchCopyName) {
+		filtered := recordSet{}
+		for other := range candidates {
+			if isCopyName(current.FoldedName, other.FoldedName) {
+				filtered[other] = struct{}{}
+			}
+		}
+		candidates = filtered
+	}
 
 	// If there is a matching hardlink, skip further checking
 	// Name is the only non-hardlink-included field
