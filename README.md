@@ -30,6 +30,7 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES]
   -l, --link                (verb) hardlink duplicate files
   -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
                               name (case insensitive)
+                              copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)
                               size
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content
