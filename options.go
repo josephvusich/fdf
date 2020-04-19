@@ -122,7 +122,7 @@ func (o *options) ParseArgs() {
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n  name (case insensitive)\n  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar',  must specify +size or +content)\n  size\n  content (default, also implies size)\nspecify multiple fields using '+', e.g.: name+content")
+	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n  name (case insensitive)\n  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)\n  size\n  content (default, also implies size)\nspecify multiple fields using '+', e.g.: name+content")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
