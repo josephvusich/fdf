@@ -133,7 +133,6 @@ func TestScanner_LinkUnlink(t *testing.T) {
 func TestScanner_Clone(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
-		// Phase 1: Hardlink
 		scanner := newScanner()
 		scanner.options.clone = true
 		scanner.options.Recursive = true
@@ -157,6 +156,46 @@ func TestScanner_Clone(t *testing.T) {
 		assert.Equal(uint64(0), scanner.totals.Skipped.size)
 		assert.Equal(uint64(0), scanner.totals.Errors.count)
 		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		validate(l)
+	})
+}
+
+func TestScanner_Delete(t *testing.T) {
+	assert := require.New(t)
+	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
+		scanner := newScanner()
+		scanner.options.deleteDupes = true
+		scanner.options.Recursive = true
+		scanner.options.MatchMode = matchContent
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(22), scanner.totals.Files.count)
+		assert.Equal(uint64(73), scanner.totals.Files.size)
+		assert.Equal(uint64(7), scanner.totals.Unique.count)
+		assert.Equal(uint64(33), scanner.totals.Unique.size)
+		assert.Equal(uint64(0), scanner.totals.Links.count)
+		assert.Equal(uint64(0), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		assert.Equal(uint64(0), scanner.totals.Dupes.size)
+		assert.Equal(uint64(15), scanner.totals.Processed.count)
+		assert.Equal(uint64(40), scanner.totals.Processed.size)
+		assert.Equal(uint64(0), scanner.totals.Skipped.count)
+		assert.Equal(uint64(0), scanner.totals.Skipped.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		l.contentOverride = true
+		l.content = map[string]string{
+			"a/bar":         "bar\n",
+			"a/diffContent": "fizz\n",
+			"a/diffSize":    "foobar\n",
+			"a/empty":       "",
+			"a/foo":         "foo\n",
+			"b/diffContent": "buzz\n",
+			"b/diffSize":    "foobar2\n",
+		}
 		validate(l)
 	})
 }
@@ -390,6 +429,10 @@ type testLayout struct {
 	// Duplicated per dirList[n]
 	content map[string]string
 
+	// Used for certain cases, such as delete, that need to override the default layout
+	// If this is set, content keys are relative paths and all other fields are ignored
+	contentOverride bool
+
 	// dirList[n]/different == different[n]
 	diffContent []string
 
@@ -452,20 +495,31 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 			}
 		}
 		assert.NoError(err)
-		assert.Len(g, (len(l.dirs)*len(l.content))+len(l.diffContent)+len(l.diffSize))
 
-		for i, d := range l.dirs {
+		if l.contentOverride {
+			assert.Len(g, len(l.content))
+
 			for f, c := range l.content {
-				b, err := ioutil.ReadFile(filepath.Join(d, fmt.Sprintf("%s", f)))
+				b, err := ioutil.ReadFile(f)
 				assert.NoError(err)
 				assert.Equalf(c, string(b), "%s", f)
 			}
-			b, err := ioutil.ReadFile(filepath.Join(d, "diffContent"))
-			assert.NoError(err)
-			assert.Equal(l.diffContent[i], string(b))
-			b, err = ioutil.ReadFile(filepath.Join(d, "diffSize"))
-			assert.NoError(err)
-			assert.Equal(l.diffSize[i], string(b))
+		} else {
+			assert.Len(g, (len(l.dirs)*len(l.content))+len(l.diffContent)+len(l.diffSize))
+
+			for i, d := range l.dirs {
+				for f, c := range l.content {
+					b, err := ioutil.ReadFile(filepath.Join(d, f))
+					assert.NoError(err)
+					assert.Equalf(c, string(b), "%s", f)
+				}
+				b, err := ioutil.ReadFile(filepath.Join(d, "diffContent"))
+				assert.NoError(err)
+				assert.Equal(l.diffContent[i], string(b))
+				b, err = ioutil.ReadFile(filepath.Join(d, "diffSize"))
+				assert.NoError(err)
+				assert.Equal(l.diffSize[i], string(b))
+			}
 		}
 	})
 }
