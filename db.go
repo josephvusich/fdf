@@ -77,6 +77,19 @@ func (d *db) insert(r *fileRecord) {
 	}
 }
 
+func (d *db) remove(r *fileRecord) {
+	for _, generatorSet := range queryGenerators {
+		var q query
+		for _, g := range generatorSet {
+			g(r, &q)
+		}
+
+		if rs, ok := d.m[q]; ok {
+			delete(rs, r)
+		}
+	}
+}
+
 func (d *db) query(q *query) recordSet {
 	return d.m[*q]
 }

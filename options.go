@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/josephvusich/go-getopt"
+	"github.com/mattn/go-zglob"
 )
 
 type verb int
@@ -44,6 +46,8 @@ type options struct {
 
 	MatchMode matchFlag
 
+	Preserve preservePatterns
+
 	Recursive bool
 
 	minSize    int64
@@ -53,6 +57,47 @@ type options struct {
 	Quiet               bool
 	DryRun              bool
 	Help                bool
+}
+
+type preservePatterns map[string]struct{}
+
+func (p preservePatterns) Set(str string) error {
+	p[str] = struct{}{}
+	return nil
+}
+
+func (p preservePatterns) String() string {
+	if p != nil {
+		elems := make([]string, 0, len(p))
+		for x := range p {
+			elems = append(elems, x)
+		}
+		return strings.Join(elems, "\n")
+	}
+	return ""
+}
+
+func (p preservePatterns) Validate() error {
+	for x := range p {
+		if _, err := filepath.Match(x, "foobar"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p preservePatterns) Match(path string) (pattern string, ok bool) {
+	for x := range p {
+		ok, err := zglob.Match(x, path)
+		if err != nil {
+			// Should have been caught in Validate()
+			panic(err)
+		}
+		if ok {
+			return x, true
+		}
+	}
+	return "", false
 }
 
 // TODO add mod time
@@ -111,6 +156,7 @@ func (o *options) MinSize() int64 {
 }
 
 func (o *options) ParseArgs() {
+	o.Preserve = make(preservePatterns)
 	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -122,6 +168,7 @@ func (o *options) ParseArgs() {
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
+	flag.Var(o.Preserve, "preserve", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
 	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n  name (case insensitive)\n  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)\n  size\n  content (default, also implies size)\nspecify multiple fields using '+', e.g.: name+content")
 
 	getopt.Alias("a", "clone")
@@ -135,6 +182,7 @@ func (o *options) ParseArgs() {
 	getopt.Alias("z", "minimum-size")
 	getopt.Alias("m", "match")
 	getopt.Alias("n", "skip-header")
+	getopt.Alias("p", "preserve")
 
 	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)
@@ -143,6 +191,11 @@ func (o *options) ParseArgs() {
 	var err error
 	if o.MatchMode, err = parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
+		o.Help = true
+	}
+
+	if err = o.Preserve.Validate(); err != nil {
+		fmt.Println("Invalid --preserve pattern:", err)
 		o.Help = true
 	}
 

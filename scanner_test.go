@@ -200,6 +200,55 @@ func TestScanner_Delete(t *testing.T) {
 	})
 }
 
+func TestScanner_DeletePreserve(t *testing.T) {
+	assert := require.New(t)
+	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
+		scanner := newScanner()
+		scanner.options.deleteDupes = true
+		scanner.options.Recursive = true
+		scanner.options.Preserve = map[string]struct{}{
+			"./b/**/*": {},
+		}
+		scanner.options.MatchMode = matchContent
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(22), scanner.totals.Files.count)
+		assert.Equal(uint64(73), scanner.totals.Files.size)
+		assert.Equal(uint64(7), scanner.totals.Unique.count)
+		assert.Equal(uint64(33), scanner.totals.Unique.size)
+		assert.Equal(uint64(0), scanner.totals.Links.count)
+		assert.Equal(uint64(0), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(6), scanner.totals.Dupes.count)
+		assert.Equal(uint64(16), scanner.totals.Dupes.size)
+		assert.Equal(uint64(9), scanner.totals.Processed.count)
+		assert.Equal(uint64(24), scanner.totals.Processed.size)
+		assert.Equal(uint64(6), scanner.totals.Skipped.count)
+		assert.Equal(uint64(16), scanner.totals.Skipped.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		l.contentOverride = true
+		l.content = map[string]string{
+			"a/diffContent": "fizz\n",
+			"a/diffSize":    "foobar\n",
+			"b/bar":         "bar\n",
+			"b/bar2":        "bar\n",
+			"b/bar3":        "bar\n",
+			"b/empty":       "",
+			"b/empty2":      "",
+			"b/empty3":      "",
+			"b/foo":         "foo\n",
+			"b/foo2":        "foo\n",
+			"b/foo3":        "foo\n",
+			"b/diffContent": "buzz\n",
+			"b/diffSize":    "foobar2\n",
+		}
+		validate(l)
+	})
+}
+
 func TestScanner_NameSize(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
