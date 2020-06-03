@@ -118,6 +118,7 @@ func (f *scanner) Scan() (err error) {
 var (
 	// Used as a special status for dry-runs
 	// Files skipped for other reasons should use fileIsSkipped
+	// Unlike fileIsSkipped, noErrDryRun displays the filepath along with "skipped"
 	noErrDryRun = errors.New("skipped")
 )
 
@@ -154,6 +155,21 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 	verb := f.options.Verb()
 	if verb == VerbNone {
 		return current, fileIsIgnored
+	}
+
+	if pattern, ok := f.options.Preserve.Match(current.RelPath); ok {
+		fmt.Printf("  preserve( %s ) matched\n", pattern)
+		fmt.Printf("    skip( %s ) preserved\n", current.RelPath)
+		if pattern2, ok := f.options.Preserve.Match(match.RelPath); ok {
+			if pattern2 != pattern {
+				fmt.Printf("  preserve( %s ) matched\n", pattern2)
+			}
+			fmt.Printf("    skip( %s ) preserved\n", match.RelPath)
+			return current, fileIsSkipped
+		}
+		f.table.db.remove(match)
+		f.table.db.insert(current)
+		match, current = current, match
 	}
 
 	f.Mutex.Destructive.RLock()
