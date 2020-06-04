@@ -14,6 +14,7 @@ func TestIsCopyName(t *testing.T) {
 			"foo.bar",
 			"Copy of foo.bar",
 			"foo (1).bar",
+			" foo .bar ",
 		},
 		{
 			"foo",

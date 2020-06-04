@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var copyNamePattern = regexp.MustCompile(`^(?i)(?:Copy (?:\d+ )?of )?((?U).*)(?:[-_ ()\d]+)?(\.[^\.]*)?$`)
+var copyNamePattern = regexp.MustCompile(`^(?i)\s*(?:Copy (?:\d+ )?of )?((?U).*)(?:(?U)[-_ ()\d]+)?\s*((?U)\.[^\.]*)?\s*$`)
 
 // Note that isCopyName must be transitive or links can be created and broken in a single traversal
 func isCopyName(nameA, nameB string) bool {
