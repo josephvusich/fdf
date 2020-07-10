@@ -41,6 +41,7 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES]
   -r, --recursive           traverse subdirectories
   -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
                             implies --minimum-size LENGTH+1
+  -v, --verbose             display additional details regarding preserved paths
 ```
 
 ## Copy-on-write Cloning

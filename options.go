@@ -55,6 +55,7 @@ type options struct {
 
 	IgnoreExistingLinks bool
 	Quiet               bool
+	Verbose             bool
 	DryRun              bool
 	Help                bool
 }
@@ -165,6 +166,7 @@ func (o *options) ParseArgs() {
 	flag.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
 	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
+	flag.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding preserved paths")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
@@ -177,6 +179,7 @@ func (o *options) ParseArgs() {
 	getopt.Alias("l", "link")
 	getopt.Alias("d", "delete")
 	getopt.Alias("q", "quiet")
+	getopt.Alias("v", "verbose")
 	getopt.Alias("t", "dry-run")
 	getopt.Alias("h", "ignore-hardlinks")
 	getopt.Alias("z", "minimum-size")
@@ -189,6 +192,11 @@ func (o *options) ParseArgs() {
 	}
 
 	var err error
+	if o.Quiet && o.Verbose {
+		fmt.Println("Invalid flag combination: --quiet and --verbose are mutually exclusive")
+		o.Help = true
+	}
+
 	if o.MatchMode, err = parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
 		o.Help = true
