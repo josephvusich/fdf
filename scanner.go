@@ -150,21 +150,27 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 		f.totals.Dupes.Add(current)
 	}
 
-	fmt.Printf("%s %s %s (%s)\n", match.RelPath, comparison, current.RelPath, humanize.IBytes(uint64(current.Size())))
+	if f.options.Verbose || !current.Preserve(f.options.Preserve) || !match.Preserve(f.options.Preserve) {
+		fmt.Printf("%s %s %s (%s)\n", match.RelPath, comparison, current.RelPath, humanize.IBytes(uint64(current.Size())))
+	}
 
 	verb := f.options.Verb()
 	if verb == VerbNone {
 		return current, fileIsIgnored
 	}
 
-	if pattern, ok := f.options.Preserve.Match(current.RelPath); ok {
-		fmt.Printf("  preserve( %s ) matched\n", pattern)
-		fmt.Printf("    skip( %s ) preserved\n", current.RelPath)
-		if pattern2, ok := f.options.Preserve.Match(match.RelPath); ok {
-			if pattern2 != pattern {
-				fmt.Printf("  preserve( %s ) matched\n", pattern2)
+	if current.Preserve(f.options.Preserve) {
+		if f.options.Verbose {
+			fmt.Printf("  preserve( %s ) matched\n", current.PreserveReason)
+			fmt.Printf("    skip( %s ) preserved\n", current.RelPath)
+		}
+		if match.Preserve(f.options.Preserve) {
+			if f.options.Verbose {
+				if current.PreserveReason != match.PreserveReason {
+					fmt.Printf("  preserve( %s ) matched\n", match.PreserveReason)
+				}
+				fmt.Printf("    skip( %s ) preserved\n", match.RelPath)
 			}
-			fmt.Printf("    skip( %s ) preserved\n", match.RelPath)
 			return current, fileIsSkipped
 		}
 		f.table.db.remove(match)
