@@ -67,7 +67,7 @@ func (f *scanner) Scan() (err error) {
 					fmt.Printf("%s: %s\n", path, inErr)
 					return nil
 				}
-				if !f.options.Quiet {
+				if f.options.Verbose {
 					fmt.Printf("%s: skipping dot-prefix\n", path)
 				}
 			}
