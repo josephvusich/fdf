@@ -159,6 +159,8 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 		return current, fileIsIgnored
 	}
 
+	var swapMatch bool
+
 	if current.Preserve(f.options.Preserve) {
 		if f.options.Verbose {
 			fmt.Printf("  preserve( %s ) matched\n", current.PreserveReason)
@@ -173,6 +175,19 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 			}
 			return current, fileIsSkipped
 		}
+		swapMatch = true
+	}
+
+	if !swapMatch && m.has(matchCopyName) {
+		if len(current.FoldedName) < len(match.FoldedName) {
+			if f.options.Verbose {
+				fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
+			}
+			swapMatch = true
+		}
+	}
+
+	if swapMatch {
 		f.table.db.remove(match)
 		f.table.db.insert(current)
 		match, current = current, match
