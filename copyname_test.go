@@ -21,10 +21,16 @@ func TestIsCopyName(t *testing.T) {
 			"Copy of foo",
 			"foo-01",
 		},
+		{
+			"xxy.z",
+			"xx.y.z",
+			"xx.z",
+		},
 	}
 
 	negative := []string{
 		"foo.bar",
+		"foo.fizz.buzz",
 		"foo",
 		".bar",
 		"foo.",
