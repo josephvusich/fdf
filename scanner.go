@@ -43,11 +43,7 @@ var silentSkip = map[string]struct{}{
 	".fseventsd":              {},
 }
 
-func (f *scanner) Scan() (err error) {
-	f.table.wd, err = os.Getwd()
-	if err != nil {
-		return err
-	}
+func (f *scanner) Scan(dirs ...string) (err error) {
 	if f.options.MatchMode == 0 {
 		return errors.New("MatchMode not specified in options")
 	}
@@ -56,63 +52,89 @@ func (f *scanner) Scan() (err error) {
 	}
 	f.totals.Start()
 
-	return filepath.Walk(f.table.wd, func(path string, info os.FileInfo, inErr error) error {
-		base := filepath.Base(path)
-		typ := info.Mode()
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 
-		if base[0] == '.' || inErr != nil {
-			_, silent := silentSkip[base]
-			if !silent {
-				if inErr != nil {
-					fmt.Printf("%s: %s\n", path, inErr)
-					return nil
-				}
-				if f.options.Verbose {
-					fmt.Printf("%s: skipping dot-prefix\n", path)
-				}
-			}
-			if inErr == nil && typ.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+	if len(dirs) == 0 {
+		dirs = []string{wd}
+	}
+
+	for _, d := range dirs {
+		if f.table.wd, err = filepath.Abs(d); err != nil {
+			return fmt.Errorf("unable to resolve \"%s\": %w", d, err)
 		}
+		if f.table.relDir, err = filepath.Rel(wd, f.table.wd); err != nil || len(f.table.relDir) >= len(f.table.wd) {
+			f.table.relDir = f.table.wd
+		}
+		if err = filepath.Walk(f.table.wd, f.walkFunc); err != nil {
+			return err
+		}
+	}
 
-		f.table.progress(path, true)
+	return nil
+}
 
-		// Avoid hogging too many resources
-		time.Sleep(0)
+func (f *scanner) walkFunc(path string, info os.FileInfo, inErr error) error {
+	if info == nil {
+		return fmt.Errorf("unable to stat: %s", path)
+	}
+	typ := info.Mode()
+	base := filepath.Base(path)
 
-		if !f.options.Recursive && typ.IsDir() && path != f.table.wd {
+	if base[0] == '.' || inErr != nil {
+		_, silent := silentSkip[base]
+		if !silent {
+			if inErr != nil {
+				fmt.Printf("%s: %s\n", path, inErr)
+				return nil
+			}
+			if f.options.Verbose {
+				fmt.Printf("%s: skipping dot-prefix\n", path)
+			}
+		}
+		if inErr == nil && typ.IsDir() {
 			return filepath.SkipDir
 		}
-
-		if typ&os.ModeSymlink != 0 {
-			if typ.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		current, err := f.execute(path)
-		if err == nil {
-			fmt.Printf(" success\n")
-			f.totals.Processed.Add(current)
-		} else if err == noErrDryRun || err == fileIsSkipped {
-			if err == noErrDryRun {
-				fmt.Printf(" skipped\n")
-			}
-			f.totals.Skipped.Add(current)
-		} else if err != fileIsIgnored {
-			f.totals.Errors.Add(current)
-			if current != nil {
-				fmt.Printf(" %s: %s\n", current.RelPath, err)
-			} else {
-				fmt.Println(err)
-			}
-		}
-
 		return nil
-	})
+	}
+
+	f.table.progress(path, true)
+
+	// Avoid hogging too many resources
+	time.Sleep(0)
+
+	if !f.options.Recursive && typ.IsDir() && path != f.table.wd {
+		return filepath.SkipDir
+	}
+
+	if typ&os.ModeSymlink != 0 {
+		if typ.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+
+	current, err := f.execute(path)
+	if err == nil {
+		fmt.Printf(" success\n")
+		f.totals.Processed.Add(current)
+	} else if err == noErrDryRun || err == fileIsSkipped {
+		if err == noErrDryRun {
+			fmt.Printf(" skipped\n")
+		}
+		f.totals.Skipped.Add(current)
+	} else if err != fileIsIgnored {
+		f.totals.Errors.Add(current)
+		if current != nil {
+			fmt.Printf(" %s: %s\n", current.RelPath, err)
+		} else {
+			fmt.Println(err)
+		}
+	}
+
+	return nil
 }
 
 var (

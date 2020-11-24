@@ -206,9 +206,8 @@ func TestScanner_DeletePreserve(t *testing.T) {
 		scanner := newScanner()
 		scanner.options.deleteDupes = true
 		scanner.options.Recursive = true
-		scanner.options.Preserve = map[string]struct{}{
-			"./b/**/*": {},
-		}
+		scanner.options.Preserve = make(preservePatterns)
+		scanner.options.Preserve.Set("./b/**/*")
 		scanner.options.MatchMode = matchContent
 
 		assert.NoError(scanner.Scan())

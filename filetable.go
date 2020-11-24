@@ -10,7 +10,8 @@ import (
 type recordSet map[*fileRecord]struct{}
 
 type fileTable struct {
-	wd string
+	relDir string
+	wd     string
 
 	db *db
 
@@ -55,7 +56,7 @@ func foldName(filePath string) string {
 // Note that `p` is ignored if there is already a cached result
 func (r *fileRecord) Preserve(p preservePatterns) bool {
 	if r.preserve == nil {
-		pattern, ok := p.Match(r.RelPath)
+		pattern, ok := p.Match(r.FilePath)
 		r.preserve, r.PreserveReason = &ok, pattern
 	}
 	return *r.preserve
@@ -79,7 +80,7 @@ func (t *fileTable) Rel(absPath string) (rel string) {
 	if err != nil {
 		return absPath
 	}
-	return rel
+	return filepath.Join(t.relDir, rel)
 }
 
 const truncFill = " ... "
