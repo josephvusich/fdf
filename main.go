@@ -15,7 +15,7 @@ func main() {
 	}
 
 	scanner := newScanner()
-	scanner.options.ParseArgs()
+	dirs := scanner.options.ParseArgs()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -26,7 +26,7 @@ func main() {
 		scanner.Exit(1)
 	}()
 
-	err := scanner.Scan()
+	err := scanner.Scan(dirs...)
 
 	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
 

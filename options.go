@@ -63,7 +63,11 @@ type options struct {
 type preservePatterns map[string]struct{}
 
 func (p preservePatterns) Set(str string) error {
-	p[str] = struct{}{}
+	abs, err := filepath.Abs(str)
+	if err != nil {
+		return fmt.Errorf("unable to resolve \"%s\": %w", str, err)
+	}
+	p[abs] = struct{}{}
 	return nil
 }
 
@@ -156,7 +160,7 @@ func (o *options) MinSize() int64 {
 	return o.minSize
 }
 
-func (o *options) ParseArgs() {
+func (o *options) ParseArgs() (dirs []string) {
 	o.Preserve = make(preservePatterns)
 	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
@@ -217,6 +221,8 @@ func (o *options) ParseArgs() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	return getopt.CommandLine.Args()
 }
 
 func (o *options) globPattern() string {
