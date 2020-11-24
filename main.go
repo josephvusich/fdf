@@ -26,9 +26,12 @@ func main() {
 		scanner.Exit(1)
 	}()
 
-	if err := scanner.Scan(); err != nil {
-		fmt.Printf("Finished with error: %s", err)
-	}
+	err := scanner.Scan()
 
 	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
+
+	if err != nil {
+		fmt.Printf("Finished with error: %s\n", err)
+		os.Exit(1)
+	}
 }
