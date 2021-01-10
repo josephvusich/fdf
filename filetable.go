@@ -129,7 +129,10 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, err 
 	if err != nil {
 		return nil, nil, err
 	}
+	return t.findStat(f, st)
+}
 
+func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, current *fileRecord, err error) {
 	if st.IsDir() {
 		return nil, nil, fileIsIgnored
 	}
@@ -157,6 +160,23 @@ func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, err 
 		filtered := recordSet{}
 		for other := range candidates {
 			if isCopyName(current.FoldedName, other.FoldedName) {
+				filtered[other] = struct{}{}
+			}
+		}
+		candidates = filtered
+	}
+
+	if len(t.options.Comparers) != 0 {
+		filtered := recordSet{}
+		for other := range candidates {
+			allMatch := true
+			for _, c := range t.options.Comparers {
+				if !c.AreEqual(current, other) {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
 				filtered[other] = struct{}{}
 			}
 		}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/josephvusich/go-getopt"
@@ -46,7 +47,8 @@ type options struct {
 
 	MatchMode matchFlag
 
-	Preserve preservePatterns
+	Comparers []comparer
+	Preserve  preservePatterns
 
 	Recursive bool
 
@@ -105,38 +107,60 @@ func (p preservePatterns) Match(path string) (pattern string, ok bool) {
 	return "", false
 }
 
+var matchFunc = regexp.MustCompile(`^([a-z]+)(?:\[([^\]]+)])?$`)
+
 // TODO add mod time
-func parseMatchSpec(matchSpec string, v verb) (f matchFlag, err error) {
+// does not modify options on error
+func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
+	var f matchFlag
 	if matchSpec == "" {
 		matchSpec = "content"
 	}
 	modes := strings.Split(strings.ToLower(matchSpec), "+")
 	for _, m := range modes {
-		switch m {
+		r := matchFunc.FindStringSubmatch(m)
+		if r == nil {
+			return fmt.Errorf("invalid field: %s", m)
+		}
+
+		switch r[1] {
 		case "content":
 			f |= matchContent
 		case "name":
-			f |= matchName
+			if r[2] != "" {
+				cmp, err := newNameComparer(r[2])
+				if err != nil {
+					return err
+				}
+				o.Comparers = append(o.Comparers, cmp)
+			} else {
+				f |= matchName
+			}
 		case "copyname":
 			f |= matchCopyName
 		case "size":
 			f |= matchSize
 		default:
-			return f, fmt.Errorf("invalid field: %s", m)
+			return fmt.Errorf("unknown matcher: %s", m)
 		}
 	}
 	if f&matchCopyName != 0 {
 		if f&matchName != 0 {
-			return f, errors.New("cannot specify both name and copyname for --match")
+			return errors.New("cannot specify both name and copyname for --match")
 		}
 		if f&matchSize == 0 {
-			return f, errors.New("--match copyname also requires either size or content")
+			return errors.New("--match copyname also requires either size or content")
 		}
+	}
+	if f == 0 {
+		return errors.New("must specify at least one non-partial matcher")
 	}
 	if v == VerbSplitLinks {
 		f |= matchHardlink
 	}
-	return
+
+	o.MatchMode = f
+	return nil
 }
 
 func (o *options) Verb() verb {
@@ -175,7 +199,17 @@ func (o *options) ParseArgs() (dirs []string) {
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
 	flag.Var(o.Preserve, "preserve", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
-	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n  name (case insensitive)\n  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)\n  size\n  content (default, also implies size)\nspecify multiple fields using '+', e.g.: name+content")
+	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
+		"  name, or name[offset:len,offset:len,...] (case insensitive)\n"+
+		"    [0:-1] whole string\n"+
+		"    [0:-2] all except last character\n"+
+		"     [1:2] second and third characters\n"+
+		"    [-1:1] last character\n"+
+		"    [-3:3] last 3 characters\n"+
+		"  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)\n"+
+		"  size\n"+
+		"  content (default, also implies size)\n"+
+		"specify multiple fields using '+', e.g.: name+content")
 
 	getopt.Alias("a", "clone")
 	getopt.Alias("c", "copy")
@@ -201,7 +235,7 @@ func (o *options) ParseArgs() (dirs []string) {
 		o.Help = true
 	}
 
-	if o.MatchMode, err = parseMatchSpec(*matchSpec, o.Verb()); err != nil {
+	if err = o.parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
 		o.Help = true
 	}
