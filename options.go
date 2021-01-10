@@ -48,7 +48,7 @@ type options struct {
 	MatchMode matchFlag
 
 	Comparers []comparer
-	Preserve  preservePatterns
+	Protect   protectPatterns
 
 	Recursive bool
 
@@ -62,9 +62,9 @@ type options struct {
 	Help                bool
 }
 
-type preservePatterns map[string]struct{}
+type protectPatterns map[string]struct{}
 
-func (p preservePatterns) Set(str string) error {
+func (p protectPatterns) Set(str string) error {
 	abs, err := filepath.Abs(str)
 	if err != nil {
 		return fmt.Errorf("unable to resolve \"%s\": %w", str, err)
@@ -73,7 +73,7 @@ func (p preservePatterns) Set(str string) error {
 	return nil
 }
 
-func (p preservePatterns) String() string {
+func (p protectPatterns) String() string {
 	if p != nil {
 		elems := make([]string, 0, len(p))
 		for x := range p {
@@ -84,7 +84,7 @@ func (p preservePatterns) String() string {
 	return ""
 }
 
-func (p preservePatterns) Validate() error {
+func (p protectPatterns) Validate() error {
 	for x := range p {
 		if _, err := filepath.Match(x, "foobar"); err != nil {
 			return err
@@ -93,7 +93,7 @@ func (p preservePatterns) Validate() error {
 	return nil
 }
 
-func (p preservePatterns) Match(path string) (pattern string, ok bool) {
+func (p protectPatterns) Match(path string) (pattern string, ok bool) {
 	for x := range p {
 		ok, err := zglob.Match(x, path)
 		if err != nil {
@@ -185,7 +185,7 @@ func (o *options) MinSize() int64 {
 }
 
 func (o *options) ParseArgs() (dirs []string) {
-	o.Preserve = make(preservePatterns)
+	o.Protect = make(protectPatterns)
 	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -194,11 +194,12 @@ func (o *options) ParseArgs() (dirs []string) {
 	flag.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
 	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
 	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
-	flag.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding preserved paths")
+	flag.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	flag.Var(o.Preserve, "preserve", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
+	flag.Var(o.Protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
+	flag.Var(o.Protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
 	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name, or name[offset:len,offset:len,...] (case insensitive)\n"+
 		"    [0:-1] whole string\n"+
@@ -223,7 +224,7 @@ func (o *options) ParseArgs() (dirs []string) {
 	getopt.Alias("z", "minimum-size")
 	getopt.Alias("m", "match")
 	getopt.Alias("n", "skip-header")
-	getopt.Alias("p", "preserve")
+	getopt.Alias("p", "protect")
 
 	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)
@@ -240,8 +241,8 @@ func (o *options) ParseArgs() (dirs []string) {
 		o.Help = true
 	}
 
-	if err = o.Preserve.Validate(); err != nil {
-		fmt.Println("Invalid --preserve pattern:", err)
+	if err = o.Protect.Validate(); err != nil {
+		fmt.Println("Invalid --protect pattern:", err)
 		o.Help = true
 	}
 

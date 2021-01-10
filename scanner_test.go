@@ -200,14 +200,14 @@ func TestScanner_Delete(t *testing.T) {
 	})
 }
 
-func TestScanner_DeletePreserve(t *testing.T) {
+func TestScanner_DeleteProtect(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
 		scanner.options.deleteDupes = true
 		scanner.options.Recursive = true
-		scanner.options.Preserve = make(preservePatterns)
-		scanner.options.Preserve.Set("./b/**/*")
+		scanner.options.Protect = make(protectPatterns)
+		scanner.options.Protect.Set("./b/**/*")
 		scanner.options.MatchMode = matchContent
 
 		assert.NoError(scanner.Scan())
