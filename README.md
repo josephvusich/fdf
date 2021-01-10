@@ -40,13 +40,14 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES] [directory ...]
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content
   -z, --minimum-size BYTES  skip files smaller than BYTES (default 1)
-  -p, --preserve PATTERN    prevent files matching glob PATTERN from being modified or deleted
+      --preserve PATTERN    (deprecated) alias for --protect PATTERN
+  -p, --protect PATTERN     prevent files matching glob PATTERN from being modified or deleted
                             may appear more than once to support multiple patterns
   -q, --quiet               don't display current filename during scanning
   -r, --recursive           traverse subdirectories
   -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
                             implies --minimum-size LENGTH+1
-  -v, --verbose             display additional details regarding preserved paths
+  -v, --verbose             display additional details regarding protected paths
 ```
 
 ## Copy-on-write Cloning

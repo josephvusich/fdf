@@ -45,8 +45,8 @@ type fileRecord struct {
 	FailedChecksum error
 	Checksum       checksum
 
-	preserve       *bool
-	PreserveReason string
+	protect       *bool
+	ProtectReason string
 }
 
 func foldName(filePath string) string {
@@ -54,12 +54,12 @@ func foldName(filePath string) string {
 }
 
 // Note that `p` is ignored if there is already a cached result
-func (r *fileRecord) Preserve(p preservePatterns) bool {
-	if r.preserve == nil {
+func (r *fileRecord) Protect(p protectPatterns) bool {
+	if r.protect == nil {
 		pattern, ok := p.Match(r.FilePath)
-		r.preserve, r.PreserveReason = &ok, pattern
+		r.protect, r.ProtectReason = &ok, pattern
 	}
-	return *r.preserve
+	return *r.protect
 }
 
 func (r *fileRecord) String() string {
