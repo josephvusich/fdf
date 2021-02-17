@@ -5,12 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/josephvusich/fdf/matchers"
 	"github.com/josephvusich/go-getopt"
-	"github.com/mattn/go-zglob"
 )
 
 type verb int
@@ -48,7 +47,7 @@ type options struct {
 	MatchMode matchFlag
 
 	Comparers []comparer
-	Protect   protectPatterns
+	Protect   matchers.GlobSet
 
 	Recursive bool
 
@@ -60,51 +59,6 @@ type options struct {
 	Verbose             bool
 	DryRun              bool
 	Help                bool
-}
-
-type protectPatterns map[string]struct{}
-
-func (p protectPatterns) Set(str string) error {
-	abs, err := filepath.Abs(str)
-	if err != nil {
-		return fmt.Errorf("unable to resolve \"%s\": %w", str, err)
-	}
-	p[abs] = struct{}{}
-	return nil
-}
-
-func (p protectPatterns) String() string {
-	if p != nil {
-		elems := make([]string, 0, len(p))
-		for x := range p {
-			elems = append(elems, x)
-		}
-		return strings.Join(elems, "\n")
-	}
-	return ""
-}
-
-func (p protectPatterns) Validate() error {
-	for x := range p {
-		if _, err := filepath.Match(x, "foobar"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p protectPatterns) Match(path string) (pattern string, ok bool) {
-	for x := range p {
-		ok, err := zglob.Match(x, path)
-		if err != nil {
-			// Should have been caught in Validate()
-			panic(err)
-		}
-		if ok {
-			return x, true
-		}
-	}
-	return "", false
 }
 
 var matchFunc = regexp.MustCompile(`^([a-z]+)(?:\[([^\]]+)])?$`)
@@ -185,7 +139,7 @@ func (o *options) MinSize() int64 {
 }
 
 func (o *options) ParseArgs() (dirs []string) {
-	o.Protect = make(protectPatterns)
+	o.Protect.DefaultInclude = false
 	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -198,8 +152,8 @@ func (o *options) ParseArgs() (dirs []string) {
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	flag.Var(o.Protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
-	flag.Var(o.Protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
+	flag.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
+	flag.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
 	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name, or name[offset:len,offset:len,...] (case insensitive)\n"+
 		"    [0:-1] whole string\n"+
@@ -238,11 +192,6 @@ func (o *options) ParseArgs() (dirs []string) {
 
 	if err = o.parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
-		o.Help = true
-	}
-
-	if err = o.Protect.Validate(); err != nil {
-		fmt.Println("Invalid --protect pattern:", err)
 		o.Help = true
 	}
 

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/josephvusich/fdf/matchers"
 )
 
 type recordSet map[*fileRecord]struct{}
@@ -45,8 +47,7 @@ type fileRecord struct {
 	FailedChecksum error
 	Checksum       checksum
 
-	protect       *bool
-	ProtectReason string
+	protect *bool
 }
 
 func foldName(filePath string) string {
@@ -54,10 +55,10 @@ func foldName(filePath string) string {
 }
 
 // Note that `p` is ignored if there is already a cached result
-func (r *fileRecord) Protect(p protectPatterns) bool {
+func (r *fileRecord) Protect(p *matchers.GlobSet) bool {
 	if r.protect == nil {
-		pattern, ok := p.Match(r.FilePath)
-		r.protect, r.ProtectReason = &ok, pattern
+		ok := p.Includes(r.FilePath)
+		r.protect = &ok
 	}
 	return *r.protect
 }

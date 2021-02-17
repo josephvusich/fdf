@@ -172,7 +172,7 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 		f.totals.Dupes.Add(current)
 	}
 
-	if f.options.Verbose || !current.Protect(f.options.Protect) || !match.Protect(f.options.Protect) {
+	if f.options.Verbose || !current.Protect(&f.options.Protect) || !match.Protect(&f.options.Protect) {
 		fmt.Printf("%s %s %s (%s)\n", match.RelPath, comparison, current.RelPath, humanize.IBytes(uint64(current.Size())))
 	}
 
@@ -183,16 +183,12 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 
 	var swapMatch bool
 
-	if current.Protect(f.options.Protect) {
+	if current.Protect(&f.options.Protect) {
 		if f.options.Verbose {
-			fmt.Printf("  protect( %s ) matched\n", current.ProtectReason)
 			fmt.Printf("    skip( %s ) protected\n", current.RelPath)
 		}
-		if match.Protect(f.options.Protect) {
+		if match.Protect(&f.options.Protect) {
 			if f.options.Verbose {
-				if current.ProtectReason != match.ProtectReason {
-					fmt.Printf("  protect( %s ) matched\n", match.ProtectReason)
-				}
 				fmt.Printf("    skip( %s ) protected\n", match.RelPath)
 			}
 			return current, fileIsSkipped
