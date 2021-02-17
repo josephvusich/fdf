@@ -152,8 +152,9 @@ func (o *options) ParseArgs() (dirs []string) {
 	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	flag.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns")
+	flag.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
 	flag.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
+	flag.Var(o.Protect.FlagValue(false), "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name, or name[offset:len,offset:len,...] (case insensitive)\n"+
 		"    [0:-1] whole string\n"+

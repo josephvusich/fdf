@@ -59,6 +59,9 @@ func (f *flagValue) Set(pattern string) error {
 }
 
 func (f *flagValue) String() string {
+	if f.gs == nil {
+		return ""
+	}
 	return f.gs.String()
 }
 
