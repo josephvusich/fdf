@@ -43,10 +43,14 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES] [directory ...]
       --preserve PATTERN    (deprecated) alias for --protect PATTERN
   -p, --protect PATTERN     prevent files matching glob PATTERN from being modified or deleted
                             may appear more than once to support multiple patterns
+                            rules are applied in the order specified
   -q, --quiet               don't display current filename during scanning
   -r, --recursive           traverse subdirectories
   -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
                             implies --minimum-size LENGTH+1
+      --unprotect value     remove files added by --protect
+                            may appear more than once
+                            rules are applied in the order specified
   -v, --verbose             display additional details regarding protected paths
 ```
 
