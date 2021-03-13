@@ -29,13 +29,16 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES] [directory ...]
                             mutually exclusive with --copy
   -l, --link                (verb) hardlink duplicate files
   -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
-                              name, or name[offset:len,offset:len,...] (case insensitive)
-                                [0:-1] whole string
-                                [0:-2] all except last character
-                                 [1:2] second and third characters
-                                [-1:1] last character
-                                [-3:3] last 3 characters
+                              name (case insensitive)
+                                range notation supported: name[offset:len,offset:len,...]
+                                  name[0:-1] whole string
+                                  name[0:-2] all except last character
+                                  name[1:2]  second and third characters
+                                  name[-1:1] last character
+                                  name[-3:3] last 3 characters
                               copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)
+                              parent (case insensitive name of immediate parent directory)
+                                range notation supported: see 'name' for examples
                               size
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content

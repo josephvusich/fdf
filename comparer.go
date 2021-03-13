@@ -10,13 +10,14 @@ type comparer interface {
 	AreEqual(a, b *fileRecord) bool
 }
 
-type nameComparer struct {
+type propertyComparer struct {
+	getter func(*fileRecord) string
 	ranges [][2]int
 }
 
-func (c *nameComparer) AreEqual(a, b *fileRecord) bool {
+func (c *propertyComparer) AreEqual(a, b *fileRecord) bool {
 	for _, r := range c.ranges {
-		if getRange(a.FoldedName, r[0], r[1]) != getRange(b.FoldedName, r[0], r[1]) {
+		if getRange(c.getter(a), r[0], r[1]) != getRange(c.getter(b), r[0], r[1]) {
 			return false
 		}
 	}
@@ -50,8 +51,10 @@ func getRange(s string, offset, length int) (partial string) {
 	return partial
 }
 
-func newNameComparer(input string) (*nameComparer, error) {
-	c := &nameComparer{}
+func newComparer(input string, getter func(*fileRecord) string) (*propertyComparer, error) {
+	c := &propertyComparer{
+		getter: getter,
+	}
 
 	for _, r := range strings.Split(input, ",") {
 		values := strings.Split(r, ":")

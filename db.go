@@ -7,6 +7,7 @@ var queryGenerators [][]queryGenerator
 func init() {
 	singles := []queryGenerator{
 		func(r *fileRecord, q *query) { r.byName(q) },
+		func(r *fileRecord, q *query) { r.byParent(q) },
 		func(r *fileRecord, q *query) { r.bySize(q) },
 		func(r *fileRecord, q *query) { r.byChecksum(q) },
 	}
@@ -26,12 +27,18 @@ func init() {
 
 type query struct {
 	Name     string
+	Parent   string
 	Size     int64
 	Checksum checksum
 }
 
 func (r *fileRecord) byName(q *query) *query {
 	q.Name = r.FoldedName
+	return q
+}
+
+func (r *fileRecord) byParent(q *query) *query {
+	q.Parent = r.FoldedParent
 	return q
 }
 
