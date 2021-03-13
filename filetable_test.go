@@ -33,7 +33,7 @@ func TestFileTable_FindComparer(t *testing.T) {
 
 	scanner := newScanner()
 	scanner.options.MatchMode = matchSize
-	cmp, err := newNameComparer("1:1,-3:3")
+	cmp, err := newComparer("1:1,-3:3", func(r *fileRecord) string { return r.FoldedName })
 	assert.NoError(err)
 	scanner.options.Comparers = []comparer{cmp}
 

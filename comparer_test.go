@@ -18,7 +18,7 @@ func TestGetRange(t *testing.T) {
 	}
 
 	for expect, inputs := range cases {
-		cmp, err := newNameComparer(inputs)
+		cmp, err := newComparer(inputs, func(r *fileRecord) string { return r.FoldedName })
 		assert.NoError(err)
 		assert.Len(cmp.ranges, 1)
 		assert.Equal(expect, getRange(subject, cmp.ranges[0][0], cmp.ranges[0][1]), "failed %d:%d", inputs[0], inputs[1])

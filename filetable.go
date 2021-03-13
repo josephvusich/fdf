@@ -38,9 +38,10 @@ type checksum struct {
 }
 
 type fileRecord struct {
-	FilePath   string
-	RelPath    string
-	FoldedName string
+	FilePath     string
+	RelPath      string
+	FoldedName   string
+	FoldedParent string
 	os.FileInfo
 
 	HasChecksum    bool
@@ -69,10 +70,11 @@ func (r *fileRecord) String() string {
 
 func newFileRecord(path string, info os.FileInfo, relPath string) *fileRecord {
 	return &fileRecord{
-		FilePath:   path,
-		RelPath:    relPath,
-		FoldedName: foldName(path),
-		FileInfo:   info,
+		FilePath:     path,
+		RelPath:      relPath,
+		FoldedName:   foldName(path),
+		FoldedParent: foldName(filepath.Base(filepath.Dir(path))),
+		FileInfo:     info,
 	}
 }
 
@@ -112,9 +114,10 @@ const (
 	matchContent            = 0b0000000000000100 | matchSize    // implied by matchHardlink
 	matchHardlink           = 0b0000000000001000 | matchContent // used by --copy and for categorization
 	matchCopyName           = 0b0000000000010000                // one filename must contain the other, e.g., "foo" and "foo copy (1)"
-	fileIsIgnored matchFlag = 0b1000000000000000                // status returned for directories
-	fileIsSkipped matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
+	matchParent             = 0b0000000000100000                // parent directory name (folded)
 	fileIsUnique  matchFlag = 0b0010000000000000                // no match found
+	fileIsSkipped matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
+	fileIsIgnored matchFlag = 0b1000000000000000                // status returned for directories
 )
 
 func (m matchFlag) has(flag matchFlag) bool {
@@ -147,6 +150,9 @@ func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, curre
 	q := &query{}
 	if t.options.MatchMode.has(matchName) {
 		current.byName(q)
+	}
+	if t.options.MatchMode.has(matchParent) {
+		current.byParent(q)
 	}
 	if t.options.MatchMode.has(matchSize) {
 		current.bySize(q)

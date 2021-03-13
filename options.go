@@ -82,13 +82,23 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 			f |= matchContent
 		case "name":
 			if r[2] != "" {
-				cmp, err := newNameComparer(r[2])
+				cmp, err := newComparer(r[2], func(r *fileRecord) string { return r.FoldedName })
 				if err != nil {
 					return err
 				}
 				o.Comparers = append(o.Comparers, cmp)
 			} else {
 				f |= matchName
+			}
+		case "parent":
+			if r[2] != "" {
+				cmp, err := newComparer(r[2], func(r *fileRecord) string { return r.FoldedParent })
+				if err != nil {
+					return err
+				}
+				o.Comparers = append(o.Comparers, cmp)
+			} else {
+				f |= matchParent
 			}
 		case "copyname":
 			f |= matchCopyName
@@ -156,13 +166,17 @@ func (o *options) ParseArgs() (dirs []string) {
 	flag.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
 	flag.Var(o.Protect.FlagValue(false), "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
-		"  name, or name[offset:len,offset:len,...] (case insensitive)\n"+
-		"    [0:-1] whole string\n"+
-		"    [0:-2] all except last character\n"+
-		"     [1:2] second and third characters\n"+
-		"    [-1:1] last character\n"+
-		"    [-3:3] last 3 characters\n"+
-		"  copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)\n"+
+		"  name (case insensitive)\n"+
+		"    range notation supported: name[offset:len,offset:len,...]\n"+
+		"      name[0:-1] whole string\n"+
+		"      name[0:-2] all except last character\n"+
+		"      name[1:2]  second and third characters\n"+
+		"      name[-1:1] last character\n"+
+		"      name[-3:3] last 3 characters\n"+
+		"  copyname (case insensitive)\n"+
+		"    'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content\n"+
+		"  parent (case insensitive name of immediate parent directory)\n"+
+		"    range notation supported: see 'name' for examples\n"+
 		"  size\n"+
 		"  content (default, also implies size)\n"+
 		"specify multiple fields using '+', e.g.: name+content")
