@@ -3,9 +3,10 @@ package matchers
 import (
 	"flag"
 	"fmt"
-	"github.com/mattn/go-zglob"
 	"path/filepath"
 	"strings"
+
+	"github.com/mattn/go-zglob"
 )
 
 type Glob struct {
