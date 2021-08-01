@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/josephvusich/fdf/matchers"
+	"github.com/josephvusich/go-matchers"
 )
 
 type recordSet map[*fileRecord]struct{}
@@ -56,7 +56,7 @@ func foldName(filePath string) string {
 }
 
 // Note that `p` is ignored if there is already a cached result
-func (r *fileRecord) Protect(p *matchers.GlobSet) bool {
+func (r *fileRecord) Protect(p *matchers.RuleSet) bool {
 	if r.protect == nil {
 		ok := p.Includes(r.FilePath)
 		r.protect = &ok

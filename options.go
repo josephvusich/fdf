@@ -5,11 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/josephvusich/fdf/matchers"
 	"github.com/josephvusich/go-getopt"
+	"github.com/josephvusich/go-matchers"
+	"github.com/josephvusich/go-matchers/glob"
 )
 
 type verb int
@@ -47,7 +49,7 @@ type options struct {
 	MatchMode matchFlag
 
 	Comparers []comparer
-	Protect   matchers.GlobSet
+	Protect   matchers.RuleSet
 
 	Recursive bool
 
@@ -152,6 +154,13 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs := getopt.NewFlagSet(args[0], flag.ContinueOnError)
 
 	o.Protect.DefaultInclude = false
+	protect, unprotect := o.Protect.FlagValues(func(pattern string) (matchers.Matcher, error) {
+		abs, err := filepath.Abs(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve \"%s\": %w", pattern, err)
+		}
+		return glob.NewMatcher(abs)
+	})
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -164,9 +173,9 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	fs.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
-	fs.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
-	fs.Var(o.Protect.FlagValue(false), "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
+	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
+	fs.Var(protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
+	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
 		"    range notation supported: name[offset:len,offset:len,...]\n"+

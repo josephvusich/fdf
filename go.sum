@@ -4,6 +4,8 @@ github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/josephvusich/go-getopt v1.0.0 h1:TF41Gebw/FObLCd7nBNdrTfK6KjbgH63rX1fOo4wddc=
 github.com/josephvusich/go-getopt v1.0.0/go.mod h1:OAagKzg9TFAzKU4O+Gpnd3jUInwkXkPzxAyTJJVu3x8=
+github.com/josephvusich/go-matchers v1.0.0 h1:cqCv/iqD5uvaNT0IbysJZC5JoASxf1iHebo2Am1yzRg=
+github.com/josephvusich/go-matchers v1.0.0/go.mod h1:JvYMIAImaWO7Amb/gy7ZQ1GuMrQjpH2bHpPwj6pW8DQ=
 github.com/mattn/go-zglob v0.0.3 h1:6Ry4EYsScDyt5di4OI6xw1bYhOqfE5S33Z1OPy+d+To=
 github.com/mattn/go-zglob v0.0.3/go.mod h1:9fxibJccNxU2cnpIKLRRFA7zX7qhkJIQWBb449FYHOo=
 github.com/minio/highwayhash v1.0.2 h1:Aak5U0nElisjDCfPSG79Tgzkn2gl66NxOMspRrKnA/g=
