@@ -15,7 +15,7 @@ func main() {
 	}
 
 	scanner := newScanner()
-	dirs := scanner.options.ParseArgs()
+	dirs := scanner.options.ParseArgs(os.Args)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

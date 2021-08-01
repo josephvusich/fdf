@@ -1,10 +1,38 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestProtectArgs(t *testing.T) {
+	assert := require.New(t)
+
+	args := []string{`fdf`, `-r`, `--protect`, `./a/**/*`, `--unprotect`, `a/**/bar`, `a`, `./b`}
+	var o options
+	dirs := o.ParseArgs(args)
+
+	assert.True(o.Recursive)
+
+	assert.Len(dirs, 2)
+	assert.Equal("a", dirs[0])
+	assert.Equal("./b", dirs[1])
+
+	cases := map[string]bool{
+		"./a/foo":     true,
+		"./a/foo/bar": false,
+		"./b/foo":     false,
+		"./b/foo/bar": false,
+	}
+
+	for in, out := range cases {
+		abs, err := filepath.Abs(in)
+		assert.NoError(err)
+		assert.Equal(out, o.Protect.Includes(abs), "expected Includes=%t for '%s'", out, in)
+	}
+}
 
 func TestOptions_ParseArgs(t *testing.T) {
 	assert := require.New(t)
