@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/josephvusich/fdf/matchers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -205,13 +204,10 @@ func TestScanner_DeleteProtect(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
-		scanner.options.deleteDupes = true
-		scanner.options.Recursive = true
-		scanner.options.Protect = matchers.GlobSet{}
-		g, err := matchers.NewGlob("./b/**/*", true)
-		assert.NoError(err)
-		scanner.options.Protect.Add(g)
-		scanner.options.MatchMode = matchContent
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `--protect`, `./b/**/*`, `-m`, `content`, `-z`, `0`}))
+		assert.True(scanner.options.deleteDupes)
+		assert.True(scanner.options.Recursive)
+		assert.Equal(matchContent, scanner.options.MatchMode)
 
 		assert.NoError(scanner.Scan())
 		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))

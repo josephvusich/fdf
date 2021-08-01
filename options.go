@@ -148,24 +148,26 @@ func (o *options) MinSize() int64 {
 	return o.minSize
 }
 
-func (o *options) ParseArgs() (dirs []string) {
+func (o *options) ParseArgs(args []string) (dirs []string) {
+	fs := getopt.NewFlagSet(args[0], flag.ContinueOnError)
+
 	o.Protect.DefaultInclude = false
-	flag.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
-	flag.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
-	flag.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
-	flag.BoolVar(&o.makeLinks, "link", false, "(verb) hardlink duplicate files")
-	flag.BoolVar(&o.deleteDupes, "delete", false, "(verb) delete duplicate files")
-	flag.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
-	flag.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
-	flag.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
-	flag.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
-	flag.BoolVar(&o.Help, "help", false, "show this help screen and exit")
-	flag.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
-	flag.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	flag.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
-	flag.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
-	flag.Var(o.Protect.FlagValue(false), "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
-	matchSpec := flag.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
+	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
+	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
+	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
+	fs.BoolVar(&o.makeLinks, "link", false, "(verb) hardlink duplicate files")
+	fs.BoolVar(&o.deleteDupes, "delete", false, "(verb) delete duplicate files")
+	fs.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
+	fs.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
+	fs.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
+	fs.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
+	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
+	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
+	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
+	fs.Var(o.Protect.FlagValue(true), "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
+	fs.Var(o.Protect.FlagValue(true), "preserve", "(deprecated) alias for --protect `PATTERN`")
+	fs.Var(o.Protect.FlagValue(false), "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
+	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
 		"    range notation supported: name[offset:len,offset:len,...]\n"+
 		"      name[0:-1] whole string\n"+
@@ -181,21 +183,21 @@ func (o *options) ParseArgs() (dirs []string) {
 		"  content (default, also implies size)\n"+
 		"specify multiple fields using '+', e.g.: name+content")
 
-	getopt.Alias("a", "clone")
-	getopt.Alias("c", "copy")
-	getopt.Alias("r", "recursive")
-	getopt.Alias("l", "link")
-	getopt.Alias("d", "delete")
-	getopt.Alias("q", "quiet")
-	getopt.Alias("v", "verbose")
-	getopt.Alias("t", "dry-run")
-	getopt.Alias("h", "ignore-hardlinks")
-	getopt.Alias("z", "minimum-size")
-	getopt.Alias("m", "match")
-	getopt.Alias("n", "skip-header")
-	getopt.Alias("p", "protect")
+	fs.Alias("a", "clone")
+	fs.Alias("c", "copy")
+	fs.Alias("r", "recursive")
+	fs.Alias("l", "link")
+	fs.Alias("d", "delete")
+	fs.Alias("q", "quiet")
+	fs.Alias("v", "verbose")
+	fs.Alias("t", "dry-run")
+	fs.Alias("h", "ignore-hardlinks")
+	fs.Alias("z", "minimum-size")
+	fs.Alias("m", "match")
+	fs.Alias("n", "skip-header")
+	fs.Alias("p", "protect")
 
-	if err := getopt.CommandLine.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(args[1:]); err != nil {
 		os.Exit(1)
 	}
 
@@ -217,11 +219,11 @@ func (o *options) ParseArgs() (dirs []string) {
 
 	if o.Help {
 		fmt.Println("Latest version can be found at https://github.com/josephvusich/fdf")
-		flag.Usage()
+		fs.Usage()
 		os.Exit(1)
 	}
 
-	return getopt.CommandLine.Args()
+	return fs.Args()
 }
 
 func (o *options) globPattern() string {
