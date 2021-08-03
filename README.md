@@ -1,5 +1,7 @@
 # File Duplicate Finder (fdf)
 
+![build status](https://github.com/josephvusich/fdf/actions/workflows/go.yml/badge.svg?branch=master)
+
 A cross-platform duplicate file finder supporting deduplication via copy-on-write clones and hard links. Inspired by [Olof Laderkvist's Windows-only fdf utility](http://www.ltr-data.se/opencode.html/).
 
 ## Installation
