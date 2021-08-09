@@ -194,6 +194,13 @@ func (f *scanner) execute(path string) (current *fileRecord, err error) {
 			return current, fileIsSkipped
 		}
 		swapMatch = true
+	} else if f.options.OnlyProtected {
+		if !match.Protect(&f.options.Protect) {
+			if f.options.Verbose {
+				fmt.Printf("    skip( %s ) missing protected\n", match.RelPath)
+			}
+			return current, fileIsIgnored
+		}
 	}
 
 	if !swapMatch && m.has(matchCopyName) {

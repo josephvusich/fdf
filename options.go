@@ -48,8 +48,9 @@ type options struct {
 
 	MatchMode matchFlag
 
-	Comparers []comparer
-	Protect   matchers.RuleSet
+	Comparers     []comparer
+	Protect       matchers.RuleSet
+	OnlyProtected bool
 
 	Recursive bool
 
@@ -173,6 +174,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
+	fs.BoolVar(&o.OnlyProtected, "only-protected", false, "ignore duplicates where both are unprotected\nprotected folder(s) must be first in the list of directories")
 	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
 	fs.Var(protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
