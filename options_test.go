@@ -37,24 +37,30 @@ func TestProtectArgs(t *testing.T) {
 func TestOptions_ParseArgs(t *testing.T) {
 	assert := require.New(t)
 
+	mockFileRecord := &fileRecord{
+		FoldedName:   "FoldedName",
+		FoldedParent: "FoldedParent",
+	}
+
 	tests := []struct {
 		spec      string
 		verb      verb
 		expect    matchFlag
-		comparers int
+		comparers []string
 	}{
-		{"content", VerbMakeLinks, matchContent | matchSize, 0},
-		{"size", VerbMakeLinks, matchSize, 0},
-		{"name", VerbMakeLinks, matchName, 0},
+		{"content", VerbMakeLinks, matchContent | matchSize, nil},
+		{"size", VerbMakeLinks, matchSize, nil},
+		{"name", VerbMakeLinks, matchName, nil},
 
-		{"content+name", VerbMakeLinks, matchContent | matchName, 0},
-		{"size+name", VerbMakeLinks, matchSize | matchName, 0},
-		{"name+content", VerbMakeLinks, matchName | matchContent, 0},
-		{"name[0:3]+content", VerbMakeLinks, matchContent, 1},
+		{"content+name", VerbMakeLinks, matchContent | matchName, nil},
+		{"size+name", VerbMakeLinks, matchSize | matchName, nil},
+		{"name+content", VerbMakeLinks, matchName | matchContent, nil},
+		{"name[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedName"}},
+		{"parent[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedParent"}},
 
-		{"content+name", VerbSplitLinks, matchContent | matchName | matchHardlink, 0},
-		{"size+name", VerbSplitLinks, matchSize | matchName | matchHardlink, 0},
-		{"name+content", VerbSplitLinks, matchName | matchContent | matchHardlink, 0},
+		{"content+name", VerbSplitLinks, matchContent | matchName | matchHardlink, nil},
+		{"size+name", VerbSplitLinks, matchSize | matchName | matchHardlink, nil},
+		{"name+content", VerbSplitLinks, matchName | matchContent | matchHardlink, nil},
 	}
 
 	for _, t := range tests {
@@ -62,5 +68,9 @@ func TestOptions_ParseArgs(t *testing.T) {
 		err := o.parseMatchSpec(t.spec, t.verb)
 		assert.NoError(err)
 		assert.Equal(t.expect, o.MatchMode)
+		assert.Len(o.Comparers, len(t.comparers))
+		for i, c := range o.Comparers {
+			assert.Equal(t.comparers[i], c.HashFunc(mockFileRecord))
+		}
 	}
 }

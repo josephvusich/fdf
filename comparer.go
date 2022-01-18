@@ -8,6 +8,7 @@ import (
 
 type comparer interface {
 	AreEqual(a, b *fileRecord) bool
+	HashFunc(*fileRecord) interface{}
 }
 
 type propertyComparer struct {
@@ -22,6 +23,10 @@ func (c *propertyComparer) AreEqual(a, b *fileRecord) bool {
 		}
 	}
 	return true
+}
+
+func (c *propertyComparer) HashFunc(r *fileRecord) interface{} {
+	return c.getter(r)
 }
 
 func getRange(s string, offset, length int) (partial string) {

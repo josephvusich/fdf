@@ -65,10 +65,23 @@ type options struct {
 
 var matchFunc = regexp.MustCompile(`^([a-z]+)(?:\[([^\]]+)])?$`)
 
+func (o *options) parseRange(rangePattern string, cmpFlag matchFlag, cmpFunc func(r *fileRecord) string) error {
+	if rangePattern != "" {
+		cmp, err := newComparer(rangePattern, cmpFunc)
+		if err != nil {
+			return err
+		}
+		o.Comparers = append(o.Comparers, cmp)
+	} else {
+		o.MatchMode |= cmpFlag
+	}
+	return nil
+}
+
 // TODO add mod time
 // does not modify options on error
 func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
-	var f matchFlag
+	o.MatchMode = matchNothing
 	if matchSpec == "" {
 		matchSpec = "content"
 	}
@@ -81,51 +94,38 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 
 		switch r[1] {
 		case "content":
-			f |= matchContent
+			o.MatchMode |= matchContent
 		case "name":
-			if r[2] != "" {
-				cmp, err := newComparer(r[2], func(r *fileRecord) string { return r.FoldedName })
-				if err != nil {
-					return err
-				}
-				o.Comparers = append(o.Comparers, cmp)
-			} else {
-				f |= matchName
+			if err := o.parseRange(r[2], matchName, func(r *fileRecord) string { return r.FoldedName }); err != nil {
+				return err
 			}
 		case "parent":
-			if r[2] != "" {
-				cmp, err := newComparer(r[2], func(r *fileRecord) string { return r.FoldedParent })
-				if err != nil {
-					return err
-				}
-				o.Comparers = append(o.Comparers, cmp)
-			} else {
-				f |= matchParent
+			if err := o.parseRange(r[2], matchParent, func(r *fileRecord) string { return r.FoldedParent }); err != nil {
+				return err
 			}
 		case "copyname":
-			f |= matchCopyName
+			o.MatchMode |= matchCopyName
 		case "size":
-			f |= matchSize
+			o.MatchMode |= matchSize
 		default:
 			return fmt.Errorf("unknown matcher: %s", m)
 		}
 	}
-	if f&matchCopyName != 0 {
-		if f&matchName != 0 {
+	if o.MatchMode&matchCopyName != 0 {
+		if o.MatchMode&matchName != 0 {
 			return errors.New("cannot specify both name and copyname for --match")
 		}
-		if f&matchSize == 0 {
+		if o.MatchMode&matchSize == 0 {
 			return errors.New("--match copyname also requires either size or content")
 		}
 	}
-	if f == 0 {
+	if o.MatchMode == matchNothing {
 		return errors.New("must specify at least one non-partial matcher")
 	}
 	if v == VerbSplitLinks {
-		f |= matchHardlink
+		o.MatchMode |= matchHardlink
 	}
 
-	o.MatchMode = f
 	return nil
 }
 
