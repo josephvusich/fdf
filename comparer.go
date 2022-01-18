@@ -61,6 +61,10 @@ func newComparer(input string, getter func(*fileRecord) string) (*propertyCompar
 		getter: getter,
 	}
 
+	if input == ":" {
+		input = "0:-1"
+	}
+
 	for _, r := range strings.Split(input, ",") {
 		values := strings.Split(r, ":")
 		if len(values) != 2 {
