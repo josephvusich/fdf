@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mattn/go-zglob"
 	"github.com/stretchr/testify/require"
 )
 
@@ -113,7 +114,7 @@ func TestScanner_LinkUnlink(t *testing.T) {
 		validate(l)
 
 		// Validate hardlink split
-		for i := 0; i <= 1; i++ {
+		for i := 0; i < len(l.dirs); i++ {
 			func(i int) {
 				f, err := os.OpenFile(filepath.Join(l.dirs[i], "bar"), os.O_WRONLY, 0666)
 				assert.NoError(err)
@@ -440,6 +441,63 @@ func TestScanner_SkipHeader(t *testing.T) {
 	})
 }
 
+func TestScanner_Path(t *testing.T) {
+	assert := require.New(t)
+	l := &testLayout{
+		dirs: []string{
+			"./foo/a",
+			"./foo/b",
+			"./bar/a",
+			"./bar/b",
+		},
+		content: map[string]string{
+			"fizz1": "fizz",
+			"fizz2": "fizz",
+			"buzz":  "buzz",
+		},
+		diffContent: nil,
+		diffSize:    nil,
+	}
+	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+		scanner := newScanner()
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `path+content`, `-z`, `0`}))
+		assert.True(scanner.options.deleteDupes)
+		assert.True(scanner.options.Recursive)
+		assert.Equal(matchContent|matchParent, scanner.options.MatchMode)
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(12), scanner.totals.Files.count)
+		assert.Equal(uint64(48), scanner.totals.Files.size)
+		assert.Equal(uint64(8), scanner.totals.Unique.count)
+		assert.Equal(uint64(32), scanner.totals.Unique.size)
+		assert.Equal(uint64(0), scanner.totals.Links.count)
+		assert.Equal(uint64(0), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		assert.Equal(uint64(0), scanner.totals.Dupes.size)
+		assert.Equal(uint64(4), scanner.totals.Processed.count)
+		assert.Equal(uint64(16), scanner.totals.Processed.size)
+		assert.Equal(uint64(0), scanner.totals.Skipped.count)
+		assert.Equal(uint64(0), scanner.totals.Skipped.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		l.contentOverride = true
+		l.content = map[string]string{
+			"foo/a/fizz1": "fizz",
+			"foo/a/buzz":  "buzz",
+			"foo/b/fizz1": "fizz",
+			"foo/b/buzz":  "buzz",
+			"bar/a/fizz1": "fizz",
+			"bar/a/buzz":  "buzz",
+			"bar/b/fizz1": "fizz",
+			"bar/b/buzz":  "buzz",
+		}
+		validate(l)
+	})
+}
+
 type testLayout struct {
 	dirs []string
 
@@ -493,16 +551,20 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 	assert.NoError(os.Chdir(dir))
 
 	for i, d := range l.dirs {
-		assert.NoError(os.Mkdir(d, 0777))
+		assert.NoError(os.MkdirAll(d, 0777))
 		for f, c := range l.content {
 			assert.NoError(ioutil.WriteFile(filepath.Join(d, fmt.Sprintf("%s", f)), []byte(c), 0666))
 		}
-		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffContent"), []byte(l.diffContent[i]), 0666))
-		assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffSize"), []byte(l.diffSize[i]), 0666))
+		if len(l.diffContent) != 0 {
+			assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffContent"), []byte(l.diffContent[i]), 0666))
+		}
+		if len(l.diffSize) != 0 {
+			assert.NoError(ioutil.WriteFile(filepath.Join(d, "diffSize"), []byte(l.diffSize[i]), 0666))
+		}
 	}
 
 	f(l, func(l *testLayout) {
-		glob, err := filepath.Glob("./**/*")
+		glob, err := zglob.Glob("./**/*")
 		var g []string
 		for _, x := range glob {
 			st, err := os.Stat(x)
@@ -514,7 +576,7 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 		assert.NoError(err)
 
 		if l.contentOverride {
-			assert.Len(g, len(l.content))
+			assert.Len(g, len(l.content), "wrong number of files")
 
 			for f, c := range l.content {
 				b, err := ioutil.ReadFile(f)
@@ -530,12 +592,16 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 					assert.NoError(err)
 					assert.Equalf(c, string(b), "%s", f)
 				}
-				b, err := ioutil.ReadFile(filepath.Join(d, "diffContent"))
-				assert.NoError(err)
-				assert.Equal(l.diffContent[i], string(b))
-				b, err = ioutil.ReadFile(filepath.Join(d, "diffSize"))
-				assert.NoError(err)
-				assert.Equal(l.diffSize[i], string(b))
+				if len(l.diffContent) != 0 {
+					b, err := ioutil.ReadFile(filepath.Join(d, "diffContent"))
+					assert.NoError(err)
+					assert.Equal(l.diffContent[i], string(b))
+				}
+				if len(l.diffSize) != 0 {
+					b, err := ioutil.ReadFile(filepath.Join(d, "diffSize"))
+					assert.NoError(err)
+					assert.Equal(l.diffSize[i], string(b))
+				}
 			}
 		}
 	})

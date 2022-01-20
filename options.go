@@ -66,6 +66,11 @@ type options struct {
 var matchFunc = regexp.MustCompile(`^([a-z]+)(?:\[([^\]]+)])?$`)
 
 func (o *options) parseRange(rangePattern string, cmpFlag matchFlag, cmpFunc func(r *fileRecord) string) error {
+	// non-indexed fields must use range matchers
+	if cmpFlag == matchNothing && rangePattern == "" {
+		rangePattern = ":"
+	}
+
 	if rangePattern != "" {
 		cmp, err := newComparer(rangePattern, cmpFunc)
 		if err != nil {
@@ -103,6 +108,13 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 			if err := o.parseRange(r[2], matchParent, func(r *fileRecord) string { return r.FoldedParent }); err != nil {
 				return err
 			}
+		case "path":
+			if err := o.parseRange(r[2], matchNothing, func(r *fileRecord) string { return filepath.Dir(r.FilePath) }); err != nil {
+				return err
+			}
+			// don't index full path in db, as it can quickly balloon the memory usage
+			// rely on parent match to narrow down possible matches pre-comparer
+			o.MatchMode |= matchParent
 		case "copyname":
 			o.MatchMode |= matchCopyName
 		case "size":

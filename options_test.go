@@ -38,6 +38,7 @@ func TestOptions_ParseArgs(t *testing.T) {
 	assert := require.New(t)
 
 	mockFileRecord := &fileRecord{
+		FilePath:     "Path/To/File",
 		FoldedName:   "FoldedName",
 		FoldedParent: "FoldedParent",
 	}
@@ -57,6 +58,7 @@ func TestOptions_ParseArgs(t *testing.T) {
 		{"name+content", VerbMakeLinks, matchName | matchContent, nil},
 		{"name[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedName"}},
 		{"parent[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedParent"}},
+		{"content+path", VerbMakeLinks, matchContent | matchParent, []string{filepath.Join("Path", "To")}},
 
 		{"content+name", VerbSplitLinks, matchContent | matchName | matchHardlink, nil},
 		{"size+name", VerbSplitLinks, matchSize | matchName | matchHardlink, nil},
