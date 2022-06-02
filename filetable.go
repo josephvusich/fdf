@@ -162,6 +162,17 @@ func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, curre
 	// Query for any known files that match all desired fields (except content/checksum)
 	candidates := t.db.query(q)
 
+	// If the current file is protected, filter for unprotected candidates
+	if current.Protect(&t.options.Protect) {
+		filtered := recordSet{}
+		for other := range candidates {
+			if !other.Protect(&t.options.Protect) {
+				filtered[other] = struct{}{}
+			}
+		}
+		candidates = filtered
+	}
+
 	// If copyname mode is active, filter down the candidate list
 	if t.options.MatchMode.has(matchCopyName) {
 		filtered := recordSet{}
