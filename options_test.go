@@ -58,7 +58,7 @@ func TestOptions_ParseArgs(t *testing.T) {
 		{"name+content", VerbMakeLinks, matchName | matchContent, nil},
 		{"name[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedName"}},
 		{"parent[0:3]+content", VerbMakeLinks, matchContent, []string{"FoldedParent"}},
-		{"content+path", VerbMakeLinks, matchContent | matchParent, []string{filepath.Join("Path", "To")}},
+		{"content+path", VerbMakeLinks, matchContent | matchParent | matchPathSuffix, []string{filepath.Join("Path", "To")}},
 
 		{"content+name", VerbSplitLinks, matchContent | matchName | matchHardlink, nil},
 		{"size+name", VerbSplitLinks, matchSize | matchName | matchHardlink, nil},
@@ -69,7 +69,7 @@ func TestOptions_ParseArgs(t *testing.T) {
 		var o options
 		err := o.parseMatchSpec(t.spec, t.verb)
 		assert.NoError(err)
-		assert.Equal(t.expect, o.MatchMode)
+		assert.Equal(t.expect, o.MatchMode, t.spec)
 		assert.Len(o.Comparers, len(t.comparers))
 		for i, c := range o.Comparers {
 			assert.Equal(t.comparers[i], c.HashFunc(mockFileRecord))

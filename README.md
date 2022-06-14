@@ -44,6 +44,8 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES] [directory ...]
                                 range notation supported: see 'name' for examples
                               path
                                 match parent directory path
+                              relpath
+                                match parent directory path relative to input dir(s)
                               size
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content

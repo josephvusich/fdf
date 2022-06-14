@@ -6,15 +6,29 @@ var queryGenerators [][]queryGenerator
 
 func init() {
 	singles := []queryGenerator{
-		func(r *fileRecord, q *query) { r.byName(q) },
-		func(r *fileRecord, q *query) { r.byParent(q) },
-		func(r *fileRecord, q *query) { r.bySize(q) },
-		func(r *fileRecord, q *query) { r.byChecksum(q) },
+		0: func(r *fileRecord, q *query) { r.byName(q) },
+		1: func(r *fileRecord, q *query) { r.byParent(q) },
+		2: func(r *fileRecord, q *query) { r.byPathSuffix(q) },
+		3: func(r *fileRecord, q *query) { r.bySize(q) },
+		4: func(r *fileRecord, q *query) { r.byChecksum(q) },
 	}
 
 	// Use binary decrement to generate all possible subsets based on bit position
 	// We need (2<<N)-1 bits
+	counter := 0
 	for b := (1 << len(singles)) - 1; b > 0; b-- {
+		counter++
+
+		// queries will never include Checksum without Size
+		if (b>>4)&1 == 1 && (b>>3)&1 != 1 {
+			continue
+		}
+
+		// queries will never include PathSuffix without Parent
+		if (b>>2)&1 == 1 && (b>>1)&1 != 1 {
+			continue
+		}
+
 		var combo []queryGenerator
 		for i, x := range singles {
 			if (b>>i)&1 == 1 {
@@ -26,10 +40,11 @@ func init() {
 }
 
 type query struct {
-	Name     string
-	Parent   string
-	Size     int64
-	Checksum checksum
+	Name       string
+	Parent     string
+	PathSuffix string
+	Size       int64
+	Checksum   checksum
 }
 
 func (r *fileRecord) byName(q *query) *query {
@@ -39,6 +54,12 @@ func (r *fileRecord) byName(q *query) *query {
 
 func (r *fileRecord) byParent(q *query) *query {
 	q.Parent = r.FoldedParent
+	return q
+}
+
+func (r *fileRecord) byPathSuffix(q *query) *query {
+	q = r.byParent(q)
+	q.PathSuffix = r.PathSuffix
 	return q
 }
 

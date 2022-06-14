@@ -62,13 +62,31 @@ func (f *scanner) Scan(dirs ...string) (err error) {
 	}
 
 	for _, d := range dirs {
-		if f.table.wd, err = filepath.Abs(d); err != nil {
+		suffixes := map[string]string{}
+
+		if f.table.scanDir, err = filepath.Abs(d); err != nil {
 			return fmt.Errorf("unable to resolve \"%s\": %w", d, err)
 		}
-		if f.table.relDir, err = filepath.Rel(wd, f.table.wd); err != nil || len(f.table.relDir) >= len(f.table.wd) {
-			f.table.relDir = f.table.wd
+		if f.table.relDir, err = filepath.Rel(wd, f.table.scanDir); err != nil || len(f.table.relDir) >= len(f.table.scanDir) {
+			f.table.relDir = f.table.scanDir
 		}
-		if err = filepath.Walk(f.table.wd, f.walkFunc); err != nil {
+
+		if err = filepath.Walk(f.table.scanDir, func(path string, info os.FileInfo, inErr error) error {
+			pathSuffix := ""
+			if info != nil && !info.IsDir() {
+				dir := filepath.Dir(path)
+				suffix, ok := suffixes[dir]
+				if !ok {
+					suffix, err = filepath.Rel(f.table.scanDir, dir)
+					if err != nil {
+						suffix = dir
+					}
+					suffixes[dir] = suffix
+				}
+				pathSuffix = suffix
+			}
+			return f.walkFunc(path, pathSuffix, info, inErr)
+		}); err != nil {
 			return err
 		}
 	}
@@ -76,7 +94,7 @@ func (f *scanner) Scan(dirs ...string) (err error) {
 	return nil
 }
 
-func (f *scanner) walkFunc(path string, info os.FileInfo, inErr error) error {
+func (f *scanner) walkFunc(path, pathSuffix string, info os.FileInfo, inErr error) error {
 	if info == nil {
 		return fmt.Errorf("unable to stat: %s", path)
 	}
@@ -105,7 +123,7 @@ func (f *scanner) walkFunc(path string, info os.FileInfo, inErr error) error {
 	// Avoid hogging too many resources
 	time.Sleep(0)
 
-	if !f.options.Recursive && typ.IsDir() && path != f.table.wd {
+	if !f.options.Recursive && typ.IsDir() && path != f.table.scanDir {
 		return filepath.SkipDir
 	}
 
@@ -116,7 +134,7 @@ func (f *scanner) walkFunc(path string, info os.FileInfo, inErr error) error {
 		return nil
 	}
 
-	current, err := f.execute(path)
+	current, err := f.execute(path, pathSuffix)
 	if err == nil {
 		fmt.Printf(" success\n")
 		f.totals.Processed.Add(current)
@@ -144,8 +162,8 @@ var (
 	noErrDryRun = errors.New("skipped")
 )
 
-func (f *scanner) execute(path string) (current *fileRecord, err error) {
-	match, current, err := f.table.find(path)
+func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err error) {
+	match, current, err := f.table.find(path, pathSuffix)
 
 	if current != nil {
 		f.totals.Files.Add(current)

@@ -12,8 +12,11 @@ import (
 type recordSet map[*fileRecord]struct{}
 
 type fileTable struct {
+	// The directory passed to scanner.Scan
+	scanDir string
+
+	// scanDir relative to the startup working directory
 	relDir string
-	wd     string
 
 	db *db
 
@@ -38,16 +41,28 @@ type checksum struct {
 }
 
 type fileRecord struct {
-	FilePath     string
-	RelPath      string
-	FoldedName   string
-	FoldedParent string
-	os.FileInfo
+	// Absolute file path.
+	FilePath string
 
+	// File path relative to startup working directory.
+	RelPath string
+
+	// File path relative to the respective dir passed to scanner.Scan
+	PathSuffix string
+
+	// Lowercased filename for case-insensitive matching.
+	FoldedName string
+
+	// Lowercased parent directory basename.
+	FoldedParent string
+
+	os.FileInfo
 	HasChecksum    bool
 	FailedChecksum error
 	Checksum       checksum
 
+	// true/false indicates whether this file is protected from destructive operations.
+	// nil if protection status has not yet been determined.
 	protect *bool
 }
 
@@ -68,18 +83,21 @@ func (r *fileRecord) String() string {
 	return fmt.Sprintf("%s: %t %X", r.FilePath, r.HasChecksum, r.Checksum)
 }
 
-func newFileRecord(path string, info os.FileInfo, relPath string) *fileRecord {
+func newFileRecord(path string, info os.FileInfo, relPath string, pathSuffix string) *fileRecord {
 	return &fileRecord{
 		FilePath:     path,
 		RelPath:      relPath,
+		PathSuffix:   pathSuffix,
 		FoldedName:   foldName(path),
 		FoldedParent: foldName(filepath.Base(filepath.Dir(path))),
 		FileInfo:     info,
 	}
 }
 
+// Rel returns absPath relative to the startup working directory,
+// or absPath if filepath.Rel fails.
 func (t *fileTable) Rel(absPath string) (rel string) {
-	rel, err := filepath.Rel(t.wd, absPath)
+	rel, err := filepath.Rel(t.scanDir, absPath)
 	if err != nil {
 		return absPath
 	}
@@ -108,16 +126,17 @@ func (t *fileTable) progress(s string, makeRelPath bool) {
 type matchFlag uint
 
 const (
-	matchNothing  matchFlag = 0b0000000000000000                // default value, usually replaced with matchContent
-	matchName     matchFlag = 0b0000000000000001                // case-insensitive
-	matchSize     matchFlag = 0b0000000000000010                // implied by matchContent and matchHardlink
-	matchContent            = 0b0000000000000100 | matchSize    // implied by matchHardlink
-	matchHardlink           = 0b0000000000001000 | matchContent // used by --copy and for categorization
-	matchCopyName           = 0b0000000000010000                // one filename must contain the other, e.g., "foo" and "foo copy (1)"
-	matchParent             = 0b0000000000100000                // parent directory name (folded)
-	fileIsUnique  matchFlag = 0b0010000000000000                // no match found
-	fileIsSkipped matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
-	fileIsIgnored matchFlag = 0b1000000000000000                // status returned for directories
+	matchNothing    matchFlag = 0b0000000000000000                // default value, usually replaced with matchContent
+	matchName       matchFlag = 0b0000000000000001                // case-insensitive
+	matchSize       matchFlag = 0b0000000000000010                // implied by matchContent and matchHardlink
+	matchContent              = 0b0000000000000100 | matchSize    // implied by matchHardlink
+	matchHardlink             = 0b0000000000001000 | matchContent // used by --copy and for categorization
+	matchCopyName             = 0b0000000000010000                // one filename must contain the other, e.g., "foo" and "foo copy (1)"
+	matchParent               = 0b0000000000100000                // parent directory name (folded)
+	matchPathSuffix           = 0b0000000001000000 | matchParent  // path relative to the directory passed to scanner.Scan
+	fileIsUnique    matchFlag = 0b0010000000000000                // no match found
+	fileIsSkipped   matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
+	fileIsIgnored   matchFlag = 0b1000000000000000                // status returned for directories
 )
 
 func (m matchFlag) has(flag matchFlag) bool {
@@ -128,15 +147,15 @@ func (m matchFlag) Error() string {
 	return fmt.Sprintf("MatchType<0b%b>", m)
 }
 
-func (t *fileTable) find(f string) (match *fileRecord, current *fileRecord, err error) {
+func (t *fileTable) find(f, pathSuffix string) (match *fileRecord, current *fileRecord, err error) {
 	st, err := os.Stat(f)
 	if err != nil {
 		return nil, nil, err
 	}
-	return t.findStat(f, st)
+	return t.findStat(f, st, pathSuffix)
 }
 
-func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, current *fileRecord, err error) {
+func (t *fileTable) findStat(f string, st os.FileInfo, pathSuffix string) (match *fileRecord, current *fileRecord, err error) {
 	if st.IsDir() {
 		return nil, nil, fileIsIgnored
 	}
@@ -145,7 +164,7 @@ func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, curre
 		return nil, nil, fileIsSkipped
 	}
 
-	current = newFileRecord(f, st, t.Rel(f))
+	current = newFileRecord(f, st, t.Rel(f), pathSuffix)
 
 	q := &query{}
 	if t.options.MatchMode.has(matchName) {
@@ -153,6 +172,9 @@ func (t *fileTable) findStat(f string, st os.FileInfo) (match *fileRecord, curre
 	}
 	if t.options.MatchMode.has(matchParent) {
 		current.byParent(q)
+	}
+	if t.options.MatchMode.has(matchPathSuffix) {
+		current.byPathSuffix(q)
 	}
 	if t.options.MatchMode.has(matchSize) {
 		current.bySize(q)
