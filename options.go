@@ -165,6 +165,13 @@ func (o *options) MinSize() int64 {
 
 func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs := getopt.NewFlagSet(args[0], flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprint(os.Stderr,
+			"usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]\n"+
+				"        [-m FIELDS] [-z BYTES] [-n LENGTH]\n"+
+				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n")
+		fs.PrintDefaults()
+	}
 
 	o.Protect.DefaultInclude = false
 	protect, unprotect := o.Protect.FlagValues(func(pattern string) (matchers.Matcher, error) {
@@ -186,7 +193,9 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
 	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
-	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\nmay appear more than once to support multiple patterns\nrules are applied in the order specified")
+	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\n"+
+		"may appear more than once to support multiple patterns\n"+
+		"rules are applied in the order specified")
 	fs.Var(protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
@@ -244,7 +253,6 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	}
 
 	if o.Help {
-		fmt.Println("Latest version can be found at https://github.com/josephvusich/fdf")
 		fs.Usage()
 		os.Exit(1)
 	}
