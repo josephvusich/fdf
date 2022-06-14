@@ -200,6 +200,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"    'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content\n"+
 		"  parent (case insensitive name of immediate parent directory)\n"+
 		"    range notation supported: see 'name' for examples\n"+
+		"  path\n"+
+		"    match parent directory path\n"+
 		"  size\n"+
 		"  content (default, also implies size)\n"+
 		"specify multiple fields using '+', e.g.: name+content")

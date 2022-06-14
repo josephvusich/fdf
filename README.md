@@ -38,9 +38,12 @@ fdf [-a | -c | -d | -l] [-thqr] [-m FIELDS] [-z BYTES] [directory ...]
                                   name[1:2]  second and third characters
                                   name[-1:1] last character
                                   name[-3:3] last 3 characters
-                              copyname (e.g., 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', must specify +size or +content)
+                              copyname (case insensitive)
+                                'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content
                               parent (case insensitive name of immediate parent directory)
                                 range notation supported: see 'name' for examples
+                              path
+                                match parent directory path
                               size
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content
