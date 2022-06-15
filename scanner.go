@@ -162,6 +162,42 @@ var (
 	noErrDryRun = errors.New("skipped")
 )
 
+// selectAndSwap returns true if current should be kept, replacing match,
+// based on protection status and filename preferences. Returns an error
+// if both records are protected.
+func (f *scanner) selectAndSwap(current, match *fileRecord, m matchFlag) (swapMatch bool, err error) {
+	canSwap := !match.Protect(&f.options.Protect)
+
+	if current.Protect(&f.options.Protect) {
+		if f.options.Verbose {
+			fmt.Printf("    skip( %s ) protected\n", current.RelPath)
+		}
+		if !canSwap {
+			if f.options.Verbose {
+				fmt.Printf("    skip( %s ) protected\n", match.RelPath)
+			}
+			return false, fileIsSkipped
+		}
+		swapMatch = true
+	}
+
+	if !swapMatch && canSwap {
+		if m.has(matchCopyName) && len(current.FoldedName) < len(match.FoldedName) {
+			if f.options.Verbose {
+				fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
+			}
+			swapMatch = true
+		} else if filepath.Dir(current.FilePath) == filepath.Dir(match.FilePath) && current.FoldedName < match.FoldedName {
+			if f.options.Verbose {
+				fmt.Printf("  keep-first-in-sort( %s ) kept\n", current.RelPath)
+			}
+			swapMatch = true
+		}
+	}
+
+	return swapMatch, nil
+}
+
 func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err error) {
 	match, current, err := f.table.find(path, pathSuffix)
 
@@ -199,33 +235,13 @@ func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err err
 		return current, fileIsIgnored
 	}
 
-	var swapMatch bool
-	canSwap := !match.Protect(&f.options.Protect)
-
-	if current.Protect(&f.options.Protect) {
-		if f.options.Verbose {
-			fmt.Printf("    skip( %s ) protected\n", current.RelPath)
-		}
-		if !canSwap {
-			if f.options.Verbose {
-				fmt.Printf("    skip( %s ) protected\n", match.RelPath)
-			}
-			return current, fileIsSkipped
-		}
-		swapMatch = true
-	}
-
-	if !swapMatch && canSwap && m.has(matchCopyName) {
-		if len(current.FoldedName) < len(match.FoldedName) {
-			if f.options.Verbose {
-				fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
-			}
-			swapMatch = true
-		}
+	swapMatch, err := f.selectAndSwap(current, match, m)
+	if err != nil {
+		return current, err
 	}
 
 	if swapMatch {
-		if !canSwap {
+		if match.Protect(&f.options.Protect) {
 			panic("attempted invalid swap")
 		}
 		f.table.db.remove(match)
