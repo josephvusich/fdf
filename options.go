@@ -222,6 +222,20 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		}
 		return glob.NewMatcher(abs)
 	})
+	protectDir, unprotectDir := o.Protect.FlagValues(func(dir string) (matchers.Matcher, error) {
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
+		}
+		st, err := os.Stat(abs)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
+		}
+		if !st.IsDir() {
+			return nil, fmt.Errorf("not a directory: %s", dir)
+		}
+		return glob.NewMatcher(filepath.Join(abs, "**", "*"))
+	})
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -239,7 +253,9 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"may appear more than once to support multiple patterns\n"+
 		"rules are applied in the order specified")
 	fs.Var(protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
+	fs.Var(protectDir, "protect-dir", "similar to --protect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
+	fs.Var(unprotectDir, "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
 		"    range notation supported: name[offset:len,offset:len,...]\n"+

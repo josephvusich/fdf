@@ -57,6 +57,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
   -p, --protect PATTERN     prevent files matching glob PATTERN from being modified or deleted
                             may appear more than once to support multiple patterns
                             rules are applied in the order specified
+      --protect-dir DIR     similar to --protect 'DIR/**/*', but throws error if DIR does not exist
   -q, --quiet               don't display current filename during scanning
   -r, --recursive           traverse subdirectories
       --skip-footer LENGTH  skip LENGTH bytes at the end of each file when comparing
@@ -64,6 +65,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
       --unprotect value     remove files added by --protect
                             may appear more than once
                             rules are applied in the order specified
+      --unprotect-dir DIR   similar to --unprotect 'DIR/**/*', but throws error if DIR does not exist
   -v, --verbose             display additional details regarding protected paths
 ```
 
