@@ -8,9 +8,36 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/josephvusich/go-matchers"
+	"github.com/josephvusich/go-matchers/glob"
 	"github.com/mattn/go-zglob"
 	"github.com/stretchr/testify/require"
 )
+
+func TestScanner_SelectAndSwap(t *testing.T) {
+	assert := require.New(t)
+
+	s := newScanner()
+	s.options.Protect = matchers.RuleSet{}
+	m, err := glob.NewMatcher("/foo_001")
+	assert.NoError(err)
+	s.options.Protect.Add(m, true)
+
+	current := newFileRecord("/foo", nil, "foo", "")
+	match := newFileRecord("/foo_001", nil, "foo_001", "")
+
+	swapMatch, err := s.selectAndSwap(current, match, matchCopyName)
+	assert.NoError(err)
+	assert.False(swapMatch)
+
+	s.options.Protect = matchers.RuleSet{}
+	current.protect = nil
+	match.protect = nil
+
+	swapMatch, err = s.selectAndSwap(current, match, matchContent)
+	assert.NoError(err)
+	assert.True(swapMatch)
+}
 
 func TestScanner_NoVerb(t *testing.T) {
 	assert := require.New(t)
