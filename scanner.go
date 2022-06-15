@@ -200,12 +200,13 @@ func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err err
 	}
 
 	var swapMatch bool
+	canSwap := !match.Protect(&f.options.Protect)
 
 	if current.Protect(&f.options.Protect) {
 		if f.options.Verbose {
 			fmt.Printf("    skip( %s ) protected\n", current.RelPath)
 		}
-		if match.Protect(&f.options.Protect) {
+		if !canSwap {
 			if f.options.Verbose {
 				fmt.Printf("    skip( %s ) protected\n", match.RelPath)
 			}
@@ -214,7 +215,7 @@ func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err err
 		swapMatch = true
 	}
 
-	if !swapMatch && m.has(matchCopyName) {
+	if !swapMatch && canSwap && m.has(matchCopyName) {
 		if len(current.FoldedName) < len(match.FoldedName) {
 			if f.options.Verbose {
 				fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
@@ -224,6 +225,9 @@ func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err err
 	}
 
 	if swapMatch {
+		if !canSwap {
+			panic("attempted invalid swap")
+		}
 		f.table.db.remove(match)
 		f.table.db.insert(current)
 		match, current = current, match
