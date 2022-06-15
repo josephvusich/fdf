@@ -251,7 +251,7 @@ func (t *fileTable) findStat(f string, st os.FileInfo, pathSuffix string) (match
 		existingChecksums := t.db.query(q)
 
 		for other := range existingChecksums {
-			if equalFiles(current, other, t.options.SkipHeader) {
+			if equalFiles(current, other, t.options) {
 				return other, current, t.options.MatchMode
 			}
 		}
@@ -283,7 +283,7 @@ func (t *fileTable) checkCandidates(current *fileRecord, candidates recordSet) (
 			continue
 		}
 
-		if other.Checksum == current.Checksum && equalFiles(current, other, t.options.SkipHeader) {
+		if other.Checksum == current.Checksum && equalFiles(current, other, t.options) {
 			return other
 		}
 	}

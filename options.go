@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -55,12 +56,52 @@ type options struct {
 
 	minSize    int64
 	SkipHeader int64
+	SkipFooter int64
 
 	IgnoreExistingLinks bool
 	Quiet               bool
 	Verbose             bool
 	DryRun              bool
 	Help                bool
+}
+
+// OpenFile returns a reader that follows options.SkipHeader
+func (o *options) OpenFile(path string) (io.ReadCloser, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if o.SkipHeader > 0 {
+		if _, err = f.Seek(o.SkipHeader, io.SeekStart); err != nil {
+			f.Close()
+			return nil, err
+		}
+	}
+
+	if o.SkipFooter == 0 {
+		return f, nil
+	}
+
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	return newLimitReadCloser(f, st.Size()-o.SkipFooter), nil
+}
+
+type limitReadCloser struct {
+	io.Reader
+	io.Closer
+}
+
+func newLimitReadCloser(f *os.File, n int64) *limitReadCloser {
+	return &limitReadCloser{
+		Reader: io.LimitReader(f, n),
+		Closer: f,
+	}
 }
 
 var matchFunc = regexp.MustCompile(`^([a-z]+)(?:\[([^\]]+)])?$`)
@@ -191,8 +232,9 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	fs.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
 	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
-	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`")
-	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing\nimplies --minimum-size LENGTH+1")
+	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`, must be greater than the sum of --skip-header and --skip-footer")
+	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing")
+	fs.Int64Var(&o.SkipFooter, "skip-footer", 0, "skip `LENGTH` bytes at the end of each file when comparing")
 	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\n"+
 		"may appear more than once to support multiple patterns\n"+
 		"rules are applied in the order specified")

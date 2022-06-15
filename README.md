@@ -52,15 +52,15 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
                               size
                               content (default, also implies size)
                             specify multiple fields using '+', e.g.: name+content
-  -z, --minimum-size BYTES  skip files smaller than BYTES (default 1)
+  -z, --minimum-size BYTES  skip files smaller than BYTES, must be greater than the sum of --skip-header and --skip-footer (default 1)
       --preserve PATTERN    (deprecated) alias for --protect PATTERN
   -p, --protect PATTERN     prevent files matching glob PATTERN from being modified or deleted
                             may appear more than once to support multiple patterns
                             rules are applied in the order specified
   -q, --quiet               don't display current filename during scanning
   -r, --recursive           traverse subdirectories
+      --skip-footer LENGTH  skip LENGTH bytes at the end of each file when comparing
   -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
-                            implies --minimum-size LENGTH+1
       --unprotect value     remove files added by --protect
                             may appear more than once
                             rules are applied in the order specified

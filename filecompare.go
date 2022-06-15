@@ -3,29 +3,20 @@ package main
 import (
 	"bytes"
 	"io"
-	"os"
 )
 
-func equalFiles(r1, r2 *fileRecord, skipHeader int64) bool {
-	f1, err := os.Open(r1.FilePath)
+func equalFiles(r1, r2 *fileRecord, o *options) bool {
+	f1, err := o.OpenFile(r1.FilePath)
 	if err != nil {
 		return false
 	}
 	defer f1.Close()
 
-	f2, err := os.Open(r2.FilePath)
+	f2, err := o.OpenFile(r2.FilePath)
 	if err != nil {
 		return false
 	}
 	defer f2.Close()
-
-	if skipHeader > 0 {
-		for _, f := range []*os.File{f1, f2} {
-			if _, err = f.Seek(skipHeader, io.SeekStart); err != nil {
-				return false
-			}
-		}
-	}
 
 	return equalReaders(f1, f2)
 }

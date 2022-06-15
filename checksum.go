@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/minio/highwayhash"
 )
@@ -40,7 +39,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 
 	t.progress(r.RelPath, false)
 
-	f, err := os.Open(r.FilePath)
+	f, err := t.options.OpenFile(r.FilePath)
 	if err != nil {
 		r.FailedChecksum = err
 		t.totals.Errors.Add(r)
@@ -48,15 +47,6 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 		return err
 	}
 	defer f.Close()
-
-	if t.options.SkipHeader > 0 {
-		if _, err = f.Seek(t.options.SkipHeader, io.SeekStart); err != nil {
-			r.FailedChecksum = err
-			t.totals.Errors.Add(r)
-			fmt.Printf("%s: %s\n", r.RelPath, err)
-			return err
-		}
-	}
 
 	b, err := hwhChecksum(f)
 	if err != nil {
