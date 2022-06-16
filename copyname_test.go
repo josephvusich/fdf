@@ -32,6 +32,10 @@ func TestIsCopyName(t *testing.T) {
 		"Copy of foo.xyz",
 		"bar.foo",
 		"f_o.bar",
+		"aa-1234.bar",
+		"aa-1234q.bar",
+		"aa-.bar",
+		"aa-foo-bar.bar",
 	}
 
 	for _, c := range positive {
