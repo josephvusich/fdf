@@ -47,6 +47,8 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
                                   name[-3:3] last 3 characters
                               copyname (case insensitive)
                                 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content
+                              namesuffix (case insensitive)
+                                one filename must end with the other, e.g.: 'foo-1.bar' and '1.bar'
                               parent (case insensitive name of immediate parent directory)
                                 range notation supported: see 'name' for examples
                               path

@@ -335,7 +335,6 @@ func TestScanner_CopyNameContent(t *testing.T) {
 	}
 
 	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
-		// Phase 1: Hardlink
 		scanner := newScanner()
 		scanner.options.MatchMode = matchCopyName | matchContent
 		scanner.options.makeLinks = true
@@ -359,6 +358,71 @@ func TestScanner_CopyNameContent(t *testing.T) {
 		assert.Equal(uint64(0), scanner.totals.Skipped.size)
 		assert.Equal(uint64(0), scanner.totals.Errors.count)
 		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		validate(l)
+	})
+}
+
+func TestScanner_NameSuffix(t *testing.T) {
+	assert := require.New(t)
+
+	l := &testLayout{
+		dirs: []string{
+			"./a",
+			"./b",
+		},
+		content: map[string]string{
+			"bar":         "bar\n",
+			"Copy of bar": "bar\n",
+			"bar (1)":     "bar\n",
+			"bar-01":      "bar\n",
+			"foo":         "bar\n",
+			"bar.foo":     "bar\n",
+		},
+		diffContent: []string{
+			"fizz\n",
+			"buzz\n",
+		},
+		diffSize: []string{
+			"foobar\n",
+			"foobar2\n",
+		},
+	}
+
+	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+		scanner := newScanner()
+		scanner.options.MatchMode = matchNameSuffix | matchContent
+		scanner.options.deleteDupes = true
+		scanner.options.Recursive = true
+
+		assert.NoError(scanner.Scan())
+		fmt.Println(scanner.totals.PrettyFormat(scanner.options.Verb()))
+		assert.Equal(uint64(16), scanner.totals.Files.count)
+		assert.Equal(uint64(73), scanner.totals.Files.size)
+		assert.Equal(uint64(8), scanner.totals.Unique.count)
+		assert.Equal(uint64(41), scanner.totals.Unique.size)
+		assert.Equal(uint64(0), scanner.totals.Links.count)
+		assert.Equal(uint64(0), scanner.totals.Links.size)
+		assert.Equal(uint64(0), scanner.totals.Cloned.count)
+		assert.Equal(uint64(0), scanner.totals.Cloned.size)
+		assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		assert.Equal(uint64(0), scanner.totals.Dupes.size)
+		assert.Equal(uint64(8), scanner.totals.Processed.count)
+		assert.Equal(uint64(32), scanner.totals.Processed.size)
+		assert.Equal(uint64(0), scanner.totals.Skipped.count)
+		assert.Equal(uint64(0), scanner.totals.Skipped.size)
+		assert.Equal(uint64(0), scanner.totals.Errors.count)
+		assert.Equal(uint64(0), scanner.totals.Errors.size)
+		l.contentOverride = true
+		l.content = map[string]string{
+			"a/bar":         "bar\n",
+			"a/bar (1)":     "bar\n",
+			"a/bar.foo":     "bar\n",
+			"a/bar-01":      "bar\n",
+			"a/diffContent": "fizz\n",
+			"a/diffSize":    "foobar\n",
+			"b/diffContent": "buzz\n",
+			"b/diffSize":    "foobar2\n",
+		}
 		validate(l)
 	})
 }

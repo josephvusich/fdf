@@ -25,3 +25,18 @@ func isCopyName(nameA, nameB string) bool {
 
 	return names[0] == names[1]
 }
+
+func isNameSuffix(nameA, nameB string) bool {
+	nameA = strings.ToLower(nameA)
+	nameB = strings.ToLower(nameB)
+
+	if len(nameA) == len(nameB) {
+		return nameA == nameB
+	}
+
+	if len(nameA) < len(nameB) {
+		return strings.HasSuffix(nameB, nameA)
+	}
+
+	return strings.HasSuffix(nameA, nameB)
+}

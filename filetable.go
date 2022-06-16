@@ -134,6 +134,7 @@ const (
 	matchCopyName             = 0b0000000000010000                // one filename must contain the other, e.g., "foo" and "foo copy (1)"
 	matchParent               = 0b0000000000100000                // parent directory name (folded)
 	matchPathSuffix           = 0b0000000001000000 | matchParent  // path relative to the directory passed to scanner.Scan
+	matchNameSuffix           = 0b0000000010000000                // one filename must end with the other, e.g., "foo-fizz-buzz" and "fizz-buzz"
 	fileIsUnique    matchFlag = 0b0010000000000000                // no match found
 	fileIsSkipped   matchFlag = 0b0100000000000000                // file was excluded e.g., due to size requirements
 	fileIsIgnored   matchFlag = 0b1000000000000000                // status returned for directories
@@ -203,6 +204,16 @@ func (t *fileTable) findStat(f string, st os.FileInfo, pathSuffix string) (match
 		filtered := recordSet{}
 		for other := range candidates {
 			if isCopyName(current.FoldedName, other.FoldedName) {
+				filtered[other] = struct{}{}
+			}
+		}
+		candidates = filtered
+	}
+
+	if t.options.MatchMode.has(matchNameSuffix) {
+		filtered := recordSet{}
+		for other := range candidates {
+			if isNameSuffix(current.FoldedName, other.FoldedName) {
 				filtered[other] = struct{}{}
 			}
 		}

@@ -160,18 +160,23 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 			o.MatchMode |= matchPathSuffix
 		case "copyname":
 			o.MatchMode |= matchCopyName
+		case "namesuffix":
+			o.MatchMode |= matchNameSuffix
 		case "size":
 			o.MatchMode |= matchSize
 		default:
 			return fmt.Errorf("unknown matcher: %s", m)
 		}
 	}
-	if o.MatchMode&matchCopyName != 0 {
+	if o.MatchMode&matchCopyName != 0 || o.MatchMode&matchNameSuffix != 0 {
+		if o.MatchMode&matchCopyName != 0 && o.MatchMode&matchNameSuffix != 0 {
+			return errors.New("cannot specify both copyname and namesuffix for --match")
+		}
 		if o.MatchMode&matchName != 0 {
-			return errors.New("cannot specify both name and copyname for --match")
+			return errors.New("cannot specify both name and copyname/namesuffix for --match")
 		}
 		if o.MatchMode&matchSize == 0 {
-			return errors.New("--match copyname also requires either size or content")
+			return errors.New("--match copyname/namesuffix also require either size or content")
 		}
 	}
 	if o.MatchMode == matchNothing {
@@ -257,6 +262,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"      name[-3:3] last 3 characters\n"+
 		"  copyname (case insensitive)\n"+
 		"    'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content\n"+
+		"  namesuffix (case insensitive)\n"+
+		"    one filename must end with the other, e.g.: 'foo-1.bar' and '1.bar'\n"+
 		"  parent (case insensitive name of immediate parent directory)\n"+
 		"    range notation supported: see 'name' for examples\n"+
 		"  path\n"+
