@@ -148,6 +148,9 @@ func (m matchFlag) Error() string {
 }
 
 func (t *fileTable) find(f, pathSuffix string) (match *fileRecord, current *fileRecord, err error) {
+	if t.options.Exclude.Includes(f) {
+		return nil, nil, fileIsIgnored
+	}
 	st, err := os.Stat(f)
 	if err != nil {
 		return nil, nil, err

@@ -51,6 +51,7 @@ type options struct {
 
 	Comparers []comparer
 	Protect   matchers.RuleSet
+	Exclude   matchers.RuleSet
 
 	Recursive bool
 
@@ -215,27 +216,13 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	}
 
 	o.Protect.DefaultInclude = false
-	protect, unprotect := o.Protect.FlagValues(func(pattern string) (matchers.Matcher, error) {
-		abs, err := filepath.Abs(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("unable to resolve \"%s\": %w", pattern, err)
-		}
-		return glob.NewMatcher(abs)
-	})
-	protectDir, unprotectDir := o.Protect.FlagValues(func(dir string) (matchers.Matcher, error) {
-		abs, err := filepath.Abs(dir)
-		if err != nil {
-			return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
-		}
-		st, err := os.Stat(abs)
-		if err != nil {
-			return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
-		}
-		if !st.IsDir() {
-			return nil, fmt.Errorf("not a directory: %s", dir)
-		}
-		return glob.NewMatcher(filepath.Join(abs, "**", "*"))
-	})
+	protect, unprotect := o.Protect.FlagValues(globMatcher)
+	protectDir, unprotectDir := o.Protect.FlagValues(globMatcherFromDir)
+
+	o.Exclude.DefaultInclude = false
+	exclude, include := o.Exclude.FlagValues(globMatcher)
+	excludeDir, includeDir := o.Exclude.FlagValues(globMatcherFromDir)
+
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -249,6 +236,10 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`, must be greater than the sum of --skip-header and --skip-footer")
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing")
 	fs.Int64Var(&o.SkipFooter, "skip-footer", 0, "skip `LENGTH` bytes at the end of each file when comparing")
+	fs.Var(exclude, "exclude", "exclude files matching `GLOB` from scanning")
+	fs.Var(excludeDir, "exclude-dir", "exclude `DIR` from scanning, throws error if DIR does not exist")
+	fs.Var(include, "include", "include `GLOB`, opposite of --exclude")
+	fs.Var(includeDir, "include-dir", "include `DIR`, throws error if DIR does not exist")
 	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\n"+
 		"may appear more than once to support multiple patterns\n"+
 		"rules are applied in the order specified")
@@ -316,6 +307,29 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	}
 
 	return fs.Args()
+}
+
+func globMatcher(pattern string) (matchers.Matcher, error) {
+	abs, err := filepath.Abs(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve \"%s\": %w", pattern, err)
+	}
+	return glob.NewMatcher(abs)
+}
+
+func globMatcherFromDir(dir string) (matchers.Matcher, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve \"%s\": %w", dir, err)
+	}
+	if !st.IsDir() {
+		return nil, fmt.Errorf("not a directory: %s", dir)
+	}
+	return glob.NewMatcher(filepath.Join(abs, "**", "*"))
 }
 
 func (o *options) globPattern() string {

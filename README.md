@@ -29,9 +29,13 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
                             mutually exclusive with --ignore-hardlinks
   -d, --delete              (verb) delete duplicate files
   -t, --dry-run             don't actually do anything, just show what would be done
+      --exclude GLOB        exclude files matching GLOB from scanning
+      --exclude-dir DIR     exclude DIR from scanning, throws error if DIR does not exist
       --help                show this help screen and exit
   -h, --ignore-hardlinks    ignore existing hardlinks
                             mutually exclusive with --copy
+      --include GLOB        include GLOB, opposite of --exclude
+      --include-dir DIR     include DIR, throws error if DIR does not exist
   -l, --link                (verb) hardlink duplicate files
   -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
                               name (case insensitive)
