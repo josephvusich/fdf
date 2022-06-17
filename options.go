@@ -273,6 +273,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"  size\n"+
 		"  content (default, also implies size)\n"+
 		"specify multiple fields using '+', e.g.: name+content")
+	allowNoContent := fs.Bool("ignore-content", false, "allow --match without 'content'")
 
 	fs.Alias("a", "clone")
 	fs.Alias("c", "copy")
@@ -300,6 +301,14 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 
 	if err = o.parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
+		o.Help = true
+	}
+
+	if o.MatchMode&matchContent == 0 && !*allowNoContent {
+		fmt.Println("Must specify --ignore-content to use --match without 'content'")
+		o.Help = true
+	} else if o.MatchMode&matchContent == 1 && *allowNoContent {
+		fmt.Println("--ignore-content specified, but --match contains 'content'")
 		o.Help = true
 	}
 
