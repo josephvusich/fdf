@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo go install
+go install
+echo go test ./...
+go test ./...
+
+echo Updating README.md
+cp docs/README-header.md ./README.md
+echo '```' >> ./README.md
+fdf --help >> ./README.md 2>&1
+echo '```' >> ./README.md
+cat docs/README-footer.md >> ./README.md
+
+git add ./README.md
