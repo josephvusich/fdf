@@ -63,7 +63,6 @@ type options struct {
 	Quiet               bool
 	Verbose             bool
 	DryRun              bool
-	Help                bool
 }
 
 // OpenFile returns a reader that follows options.SkipHeader
@@ -219,6 +218,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n")
 		fs.PrintDefaults()
 	}
+	showHelp := false
 
 	o.Protect.DefaultInclude = false
 	protect, unprotect := o.Protect.FlagValues(globMatcher)
@@ -237,7 +237,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
 	fs.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	fs.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
-	fs.BoolVar(&o.Help, "help", false, "show this help screen and exit")
+	helpFlag := fs.Bool("help", false, "show this help screen and exit")
 	fs.Int64Var(&o.minSize, "minimum-size", 1, "skip files smaller than `BYTES`, must be greater than the sum of --skip-header and --skip-footer")
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing")
 	fs.Int64Var(&o.SkipFooter, "skip-footer", 0, "skip `LENGTH` bytes at the end of each file when comparing")
@@ -296,29 +296,32 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	var err error
 	if o.Quiet && o.Verbose {
 		fmt.Println("Invalid flag combination: --quiet and --verbose are mutually exclusive")
-		o.Help = true
+		showHelp = true
 	}
 
 	if err = o.parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
-		o.Help = true
+		showHelp = true
 	}
 
 	if o.MatchMode&matchContent == 0 && !*allowNoContent {
 		fmt.Println("Must specify --ignore-content to use --match without 'content'")
-		o.Help = true
+		showHelp = true
 	} else if o.MatchMode&matchContent == 1 && *allowNoContent {
 		fmt.Println("--ignore-content specified, but --match contains 'content'")
-		o.Help = true
+		showHelp = true
 	}
 
 	if o.Verb() == VerbSplitLinks && o.IgnoreExistingLinks {
 		fmt.Println("Invalid flag combination: --copy and --ignore-hardlinks are mutually exclusive")
-		o.Help = true
+		showHelp = true
 	}
 
-	if o.Help {
+	if showHelp || *helpFlag {
 		fs.Usage()
+		if !showHelp {
+			os.Exit(0)
+		}
 		os.Exit(1)
 	}
 
