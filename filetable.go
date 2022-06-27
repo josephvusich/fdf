@@ -64,10 +64,20 @@ type fileRecord struct {
 	// true/false indicates whether this file is protected from destructive operations.
 	// nil if protection status has not yet been determined.
 	protect *bool
+
+	satisfiesKept *bool
 }
 
 func foldName(filePath string) string {
 	return strings.ToLower(filepath.Base(filePath))
+}
+
+func (r *fileRecord) SatisfiesKept(k *matchers.RuleSet) bool {
+	if r.satisfiesKept == nil {
+		ok := k.Includes(r.FilePath)
+		r.satisfiesKept = &ok
+	}
+	return *r.satisfiesKept
 }
 
 // Note that `p` is ignored if there is already a cached result

@@ -52,6 +52,7 @@ type options struct {
 	Comparers []comparer
 	Protect   matchers.RuleSet
 	Exclude   matchers.RuleSet
+	MustKeep  matchers.RuleSet
 
 	Recursive bool
 
@@ -228,6 +229,10 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	exclude, include := o.Exclude.FlagValues(globMatcher)
 	excludeDir, includeDir := o.Exclude.FlagValues(globMatcherFromDir)
 
+	o.MustKeep.DefaultInclude = true
+	mustKeep, _ := o.MustKeep.FlagValues(globMatcher)
+	mustKeepDir, _ := o.MustKeep.FlagValues(globMatcherFromDir)
+
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -252,6 +257,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.Var(protectDir, "protect-dir", "similar to --protect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	fs.Var(unprotectDir, "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
+	fs.Var(mustKeep, "if-kept", "only remove files if the 'kept' file matches the provided `GLOB`")
+	fs.Var(mustKeepDir, "if-kept-dir", "only remove files if the 'kept' file is a descendant of `DIR`")
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
 		"    range notation supported: name[offset:len,offset:len,...]\n"+

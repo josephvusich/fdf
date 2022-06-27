@@ -33,6 +33,8 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
       --exclude GLOB        exclude files matching GLOB from scanning
       --exclude-dir DIR     exclude DIR from scanning, throws error if DIR does not exist
       --help                show this help screen and exit
+      --if-kept GLOB        only remove files if the 'kept' file matches the provided GLOB
+      --if-kept-dir DIR     only remove files if the 'kept' file is a descendant of DIR
       --ignore-content      allow --match without 'content'
   -h, --ignore-hardlinks    ignore existing hardlinks
                             mutually exclusive with --copy

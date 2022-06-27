@@ -30,6 +30,7 @@ type scanner struct {
 func newScanner() *scanner {
 	s := &scanner{}
 	s.table = newFileTable(&s.options, &s.totals)
+	s.options.MustKeep.DefaultInclude = true
 	return s
 }
 
@@ -166,36 +167,44 @@ var (
 // based on protection status and filename preferences. Returns an error
 // if both records are protected.
 func (f *scanner) selectAndSwap(current, match *fileRecord, m matchFlag) (swapMatch bool, err error) {
-	canSwap := !match.Protect(&f.options.Protect)
+	currentCanBeKept := current.SatisfiesKept(&f.options.MustKeep)
+	matchCanBeKept := match.SatisfiesKept(&f.options.MustKeep)
 
-	if current.Protect(&f.options.Protect) {
+	currentProtected := current.Protect(&f.options.Protect)
+	if currentProtected && f.options.Verbose {
+		fmt.Printf("    skip( %s ) protected\n", current.RelPath)
+	}
+	matchProtected := match.Protect(&f.options.Protect)
+	if matchProtected && f.options.Verbose {
+		fmt.Printf("    skip( %s ) protected\n", match.RelPath)
+	}
+
+	canSwap := !matchProtected && currentCanBeKept
+	canAvoidSwap := !currentProtected && matchCanBeKept
+
+	if canSwap != canAvoidSwap {
+		return canSwap, nil
+	}
+
+	if !canSwap && !canAvoidSwap {
+		return false, fileIsSkipped
+	}
+
+	if m.has(matchCopyName) && len(current.FoldedName) < len(match.FoldedName) {
 		if f.options.Verbose {
-			fmt.Printf("    skip( %s ) protected\n", current.RelPath)
+			fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
 		}
-		if !canSwap {
-			if f.options.Verbose {
-				fmt.Printf("    skip( %s ) protected\n", match.RelPath)
-			}
-			return false, fileIsSkipped
-		}
-		swapMatch = true
+		return true, nil
 	}
 
-	if !swapMatch && canSwap {
-		if m.has(matchCopyName) && len(current.FoldedName) < len(match.FoldedName) {
-			if f.options.Verbose {
-				fmt.Printf("  keep-shortest( %s ) kept\n", current.RelPath)
-			}
-			swapMatch = true
-		} else if filepath.Dir(current.FilePath) == filepath.Dir(match.FilePath) && current.FoldedName < match.FoldedName {
-			if f.options.Verbose {
-				fmt.Printf("  keep-first-in-sort( %s ) kept\n", current.RelPath)
-			}
-			swapMatch = true
+	if filepath.Dir(current.FilePath) == filepath.Dir(match.FilePath) && current.FoldedName < match.FoldedName {
+		if f.options.Verbose {
+			fmt.Printf("  keep-first-in-sort( %s ) kept\n", current.RelPath)
 		}
+		return true, nil
 	}
 
-	return swapMatch, nil
+	return false, nil
 }
 
 func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err error) {

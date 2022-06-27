@@ -21,6 +21,51 @@ func TestScanner_SelectAndSwap(t *testing.T) {
 	s.options.Protect = matchers.RuleSet{}
 	m, err := glob.NewMatcher("/foo_001")
 	assert.NoError(err)
+	m2, err := glob.NewMatcher("/foo")
+	assert.NoError(err)
+	s.options.Protect.Add(m, true)
+	s.options.MustKeep.Add(m2, true)
+
+	current := newFileRecord("/foo", nil, "foo", "")
+	match := newFileRecord("/foo_001", nil, "foo_001", "")
+
+	swapMatch, err := s.selectAndSwap(current, match, matchCopyName)
+	assert.ErrorIs(err, fileIsSkipped)
+
+	s.options.MustKeep = matchers.RuleSet{DefaultInclude: true}
+	current.satisfiesKept = nil
+	match.satisfiesKept = nil
+
+	swapMatch, err = s.selectAndSwap(current, match, matchCopyName)
+	assert.NoError(err)
+	assert.False(swapMatch)
+
+	s.options.Protect = matchers.RuleSet{}
+	current.protect = nil
+	match.protect = nil
+
+	swapMatch, err = s.selectAndSwap(current, match, matchContent)
+	assert.NoError(err)
+	assert.True(swapMatch)
+
+	current.protect = nil
+	current.satisfiesKept = nil
+	match.protect = nil
+	match.satisfiesKept = nil
+	s.options.MustKeep.Add(m, true)
+
+	swapMatch, err = s.selectAndSwap(current, match, matchContent)
+	assert.NoError(err)
+	assert.False(swapMatch)
+}
+
+func TestScanner_SelectAndSwapMustKeep(t *testing.T) {
+	assert := require.New(t)
+
+	s := newScanner()
+	s.options.Protect = matchers.RuleSet{}
+	m, err := glob.NewMatcher("/foo_001")
+	assert.NoError(err)
 	s.options.Protect.Add(m, true)
 
 	current := newFileRecord("/foo", nil, "foo", "")
