@@ -7,7 +7,7 @@ A cross-platform duplicate file finder supporting deduplication via copy-on-writ
 ## Installation
 ### System Requirements
 
-* Go with CGO support enabled
+* Go (with CGO support enabled on non-Windows platforms)
 * One of the following platforms:
 
 | Platform | Minimum version | Reason |

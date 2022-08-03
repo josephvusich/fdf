@@ -1,13 +1,15 @@
 package main
 
-// #define WIN32_LEAN_AND_MEAN
-// #include <windows.h>
-// #include <winbase.h>
-import "C"
-
 import (
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
+)
+
+var (
+	libKernel32   = windows.NewLazySystemDLL("kernel32.dll")
+	procCopyFileW = libKernel32.NewProc("CopyFileW")
 )
 
 func copyFile(src, dst string) error {
@@ -20,7 +22,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	result, err := C.CopyFileW(C.PWCHAR(unsafe.Pointer(wsrc)), C.PWCHAR(unsafe.Pointer(wdst)), C.TRUE)
+	result, _, err := syscall.SyscallN(procCopyFileW.Addr(), uintptr(unsafe.Pointer(wsrc)), uintptr(unsafe.Pointer(wdst)), uintptr(1))
 	if result == 0 {
 		return err
 	}
