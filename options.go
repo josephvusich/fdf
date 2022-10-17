@@ -162,6 +162,8 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 			o.MatchMode |= matchCopyName
 		case "namesuffix":
 			o.MatchMode |= matchNameSuffix
+		case "nameprefix":
+			o.MatchMode |= matchNamePrefix
 		case "size":
 			o.MatchMode |= matchSize
 		default:
@@ -271,6 +273,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"    'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content\n"+
 		"  namesuffix (case insensitive)\n"+
 		"    one filename must end with the other, e.g.: 'foo-1.bar' and '1.bar'\n"+
+		"  nameprefix (case insensitive)\n"+
+		"    one filename must begin with the other, e.g., 'foo-1.bar' and 'foo.bar'\n"+
 		"  parent (case insensitive name of immediate parent directory)\n"+
 		"    range notation supported: see 'name' for examples\n"+
 		"  path\n"+

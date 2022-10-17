@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -24,6 +25,26 @@ func isCopyName(nameA, nameB string) bool {
 	}
 
 	return names[0] == names[1]
+}
+
+func withoutExt(filename string) string {
+	ext := filepath.Ext(filename)
+	return strings.TrimSuffix(filename, ext)
+}
+
+func isNamePrefix(nameA, nameB string) bool {
+	nameA = strings.ToLower(withoutExt(nameA))
+	nameB = strings.ToLower(withoutExt(nameB))
+
+	if len(nameA) == len(nameB) {
+		return nameA == nameB
+	}
+
+	if len(nameA) < len(nameB) {
+		return strings.HasPrefix(nameB, nameA)
+	}
+
+	return strings.HasPrefix(nameA, nameB)
 }
 
 func isNameSuffix(nameA, nameB string) bool {
