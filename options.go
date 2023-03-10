@@ -64,6 +64,8 @@ type options struct {
 	Quiet               bool
 	Verbose             bool
 	DryRun              bool
+
+	JsonReport string
 }
 
 // OpenFile returns a reader that follows options.SkipHeader
@@ -285,6 +287,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"  content (default, also implies size)\n"+
 		"specify multiple fields using '+', e.g.: name+content")
 	allowNoContent := fs.Bool("ignore-content", false, "allow --match without 'content'")
+	fs.StringVar(&o.JsonReport, "json-report", "", "on completion, dump JSON match data to `FILE`")
 
 	fs.Alias("a", "clone")
 	fs.Alias("c", "copy")

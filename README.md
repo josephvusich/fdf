@@ -40,6 +40,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
                             mutually exclusive with --copy
       --include GLOB        include GLOB, opposite of --exclude
       --include-dir DIR     include DIR, throws error if DIR does not exist
+      --json-report FILE    on completion, dump JSON match data to FILE
   -l, --link                (verb) hardlink duplicate files
   -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
                               name (case insensitive)

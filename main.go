@@ -26,12 +26,16 @@ func main() {
 		scanner.Exit(1)
 	}()
 
-	err := scanner.Scan(dirs...)
+	scanErr := scanner.Scan(dirs...)
 
 	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
 
-	if err != nil {
-		fmt.Printf("Finished with error: %s\n", err)
+	if err := writeReport(scanner.options.JsonReport, scanner.table.pairs); err != nil {
+		fmt.Println("Unable to write JSON report:", err)
+	}
+
+	if scanErr != nil {
+		fmt.Printf("Finished with error: %s\n", scanErr)
 		os.Exit(1)
 	}
 }
