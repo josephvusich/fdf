@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/josephvusich/fdf/report"
@@ -11,6 +12,8 @@ func writeReport(path string, pairs [][]string) error {
 	if path == "" {
 		return nil
 	}
+
+	fmt.Printf("Writing %s...\n", path)
 
 	f, err := os.Create(path)
 	if err != nil {
