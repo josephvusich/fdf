@@ -318,11 +318,17 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		showHelp = true
 	}
 
-	if o.MatchMode&matchContent != matchContent && !*allowNoContent {
+	if o.MatchMode&matchContent != matchContent && !*allowNoContent && (o.Verb() != VerbNone && !o.DryRun) {
 		fmt.Println("Must specify --ignore-content to use --match without 'content'")
 		showHelp = true
 	} else if o.MatchMode&matchContent == 1 && *allowNoContent {
 		fmt.Println("--ignore-content specified, but --match contains 'content'")
+		showHelp = true
+	} else if o.DryRun && *allowNoContent {
+		fmt.Println("--ignore-content is mutually exclusive with --dry-run")
+		showHelp = true
+	} else if o.Verb() == VerbNone && *allowNoContent {
+		fmt.Println("--ignore-content specified without a verb")
 		showHelp = true
 	}
 
