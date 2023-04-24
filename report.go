@@ -8,7 +8,7 @@ import (
 	"github.com/josephvusich/fdf/report"
 )
 
-func writeReport(path string, pairs [][]string) error {
+func writeReport(path string, pairs, namePairs [][]string) error {
 	if path == "" {
 		return nil
 	}
@@ -23,5 +23,8 @@ func writeReport(path string, pairs [][]string) error {
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(&report.Report{ContentMatches: pairs})
+	return enc.Encode(&report.Report{
+		ContentMatches: pairs,
+		NameMatches:    namePairs,
+	})
 }

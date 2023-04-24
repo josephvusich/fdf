@@ -26,7 +26,8 @@ type fileTable struct {
 	options *options
 	totals  *totals
 
-	pairs [][]string
+	pairs     [][]string
+	namePairs [][]string
 }
 
 func newFileTable(o *options, t *totals) *fileTable {
@@ -170,11 +171,20 @@ func (t *fileTable) find(f, pathSuffix string) (match *fileRecord, current *file
 		return nil, nil, err
 	}
 	match, current, err = t.findStat(f, st, pathSuffix)
-	if matchFlag, ok := err.(matchFlag); ok && matchFlag.has(matchContent) {
-		t.pairs = append(t.pairs, []string{
-			current.FilePath,
-			match.FilePath,
-		})
+	if matchFlag, ok := err.(matchFlag); ok {
+		if matchFlag.has(matchContent) {
+			t.pairs = append(t.pairs, []string{
+				current.FilePath,
+				match.FilePath,
+			})
+		}
+
+		if matchFlag.has(matchName) {
+			t.namePairs = append(t.namePairs, []string{
+				current.FilePath,
+				match.FilePath,
+			})
+		}
 	}
 	return match, current, err
 }
