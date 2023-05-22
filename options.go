@@ -318,7 +318,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		showHelp = true
 	}
 
-	if o.MatchMode&matchContent == 0 && !*allowNoContent {
+	if o.MatchMode&matchContent != matchContent && !*allowNoContent {
 		fmt.Println("Must specify --ignore-content to use --match without 'content'")
 		showHelp = true
 	} else if o.MatchMode&matchContent == 1 && *allowNoContent {
