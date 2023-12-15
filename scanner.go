@@ -287,7 +287,7 @@ func (f *scanner) execute(path, pathSuffix string) (current *fileRecord, err err
 			x = "hardlink"
 			a = os.Link
 		} else if verb == VerbSplitLinks {
-			if !m.has(matchHardlink) {
+			if !m.has(matchHardlink) && !f.options.CopyUnlinked {
 				return current, fileIsIgnored
 			}
 			x = "copy"

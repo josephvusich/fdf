@@ -61,6 +61,7 @@ type options struct {
 	SkipFooter int64
 
 	IgnoreExistingLinks bool
+	CopyUnlinked        bool
 	Quiet               bool
 	Verbose             bool
 	DryRun              bool
@@ -186,7 +187,7 @@ func (o *options) parseMatchSpec(matchSpec string, v verb) (err error) {
 	if o.MatchMode == matchNothing {
 		return errors.New("must specify at least one non-partial matcher")
 	}
-	if v == VerbSplitLinks {
+	if v == VerbSplitLinks && !o.CopyUnlinked {
 		o.MatchMode |= matchHardlink
 	}
 
@@ -244,6 +245,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.BoolVar(&o.deleteDupes, "delete", false, "(verb) delete duplicate files")
 	fs.BoolVar(&o.DryRun, "dry-run", false, "don't actually do anything, just show what would be done")
 	fs.BoolVar(&o.IgnoreExistingLinks, "ignore-hardlinks", false, "ignore existing hardlinks\nmutually exclusive with --copy")
+	fs.BoolVar(&o.CopyUnlinked, "copy-unlinked", false, "always copy over matching files even if not hardlinked")
 	fs.BoolVar(&o.Quiet, "quiet", false, "don't display current filename during scanning")
 	fs.BoolVar(&o.Verbose, "verbose", false, "display additional details regarding protected paths")
 	helpFlag := fs.Bool("help", false, "show this help screen and exit")
@@ -310,6 +312,11 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	var err error
 	if o.Quiet && o.Verbose {
 		fmt.Println("Invalid flag combination: --quiet and --verbose are mutually exclusive")
+		showHelp = true
+	}
+
+	if o.CopyUnlinked && !o.splitLinks {
+		fmt.Println("--copy-unlinked is only valid with --copy")
 		showHelp = true
 	}
 

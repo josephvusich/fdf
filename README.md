@@ -28,6 +28,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
   -a, --clone               (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
   -c, --copy                (verb) split existing hardlinks via copy
                             mutually exclusive with --ignore-hardlinks
+      --copy-unlinked       always copy over matching files even if not hardlinked
   -d, --delete              (verb) delete duplicate files
   -t, --dry-run             don't actually do anything, just show what would be done
       --exclude GLOB        exclude files matching GLOB from scanning
