@@ -224,7 +224,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n")
 		fs.PrintDefaults()
 	}
-	showHelp := false
+	badOptions := false
 
 	o.Protect.DefaultInclude = false
 	protect, unprotect := o.Protect.FlagValues(globMatcher)
@@ -312,43 +312,44 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	var err error
 	if o.Quiet && o.Verbose {
 		fmt.Println("Invalid flag combination: --quiet and --verbose are mutually exclusive")
-		showHelp = true
+		badOptions = true
 	}
 
 	if o.CopyUnlinked && !o.splitLinks {
 		fmt.Println("--copy-unlinked is only valid with --copy")
-		showHelp = true
+		badOptions = true
 	}
 
 	if err = o.parseMatchSpec(*matchSpec, o.Verb()); err != nil {
 		fmt.Println("Invalid --match parameter:", err)
-		showHelp = true
+		badOptions = true
 	}
 
 	if o.MatchMode&matchContent != matchContent && !*allowNoContent && (o.Verb() != VerbNone && !o.DryRun) {
 		fmt.Println("Must specify --ignore-content to use --match without 'content'")
-		showHelp = true
+		badOptions = true
 	} else if o.MatchMode&matchContent == 1 && *allowNoContent {
 		fmt.Println("--ignore-content specified, but --match contains 'content'")
-		showHelp = true
+		badOptions = true
 	} else if o.DryRun && *allowNoContent {
 		fmt.Println("--ignore-content is mutually exclusive with --dry-run")
-		showHelp = true
+		badOptions = true
 	} else if o.Verb() == VerbNone && *allowNoContent {
 		fmt.Println("--ignore-content specified without a verb")
-		showHelp = true
+		badOptions = true
 	}
 
 	if o.Verb() == VerbSplitLinks && o.IgnoreExistingLinks {
 		fmt.Println("Invalid flag combination: --copy and --ignore-hardlinks are mutually exclusive")
-		showHelp = true
+		badOptions = true
 	}
 
-	if showHelp || *helpFlag {
+	if *helpFlag {
 		fs.Usage()
-		if !showHelp {
-			os.Exit(0)
-		}
+		os.Exit(0)
+	}
+
+	if badOptions {
 		os.Exit(1)
 	}
 
