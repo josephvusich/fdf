@@ -8,12 +8,23 @@ import (
 	"github.com/josephvusich/fdf/report"
 )
 
-func writeReport(path string, pairs, namePairs [][]string) error {
+func writeReport(path string, pairs, namePairs [][]string, db *db) error {
 	if path == "" {
 		return nil
 	}
 
 	fmt.Printf("Writing %s...\n", path)
+
+	unique := map[string]struct{}{}
+	for _, v := range db.m {
+		for r := range v {
+			if r.everMatchedContent {
+				continue
+			}
+
+			unique[r.FilePath] = struct{}{}
+		}
+	}
 
 	f, err := os.Create(path)
 	if err != nil {

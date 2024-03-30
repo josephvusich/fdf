@@ -30,7 +30,7 @@ func main() {
 
 	fmt.Printf("\033[2K\n%s\n", scanner.totals.PrettyFormat(scanner.options.Verb()))
 
-	if err := writeReport(scanner.options.JsonReport, scanner.table.pairs, scanner.table.namePairs); err != nil {
+	if err := writeReport(scanner.options.JsonReport, scanner.table.pairs, scanner.table.namePairs, scanner.table.db); err != nil {
 		fmt.Println("Unable to write JSON report:", err)
 	}
 

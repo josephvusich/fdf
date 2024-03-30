@@ -3,7 +3,17 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
 )
+
+func areHardlinked(r1, r2 *fileRecord) bool {
+	if os.SameFile(r1.FileInfo, r2.FileInfo) {
+		r1.everMatchedContent = true
+		r2.everMatchedContent = true
+		return true
+	}
+	return false
+}
 
 func equalFiles(r1, r2 *fileRecord, o *options) bool {
 	f1, err := o.OpenFile(r1.FilePath)
@@ -18,7 +28,12 @@ func equalFiles(r1, r2 *fileRecord, o *options) bool {
 	}
 	defer f2.Close()
 
-	return equalReaders(f1, f2)
+	if equalReaders(f1, f2) {
+		r1.everMatchedContent = true
+		r2.everMatchedContent = true
+		return true
+	}
+	return false
 }
 
 func equalReaders(f1, f2 io.Reader) bool {

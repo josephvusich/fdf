@@ -69,6 +69,8 @@ type fileRecord struct {
 	protect *bool
 
 	satisfiesKept *bool
+
+	everMatchedContent bool
 }
 
 func foldName(filePath string) string {
@@ -280,7 +282,7 @@ func (t *fileTable) findStat(f string, st os.FileInfo, pathSuffix string) (match
 	// If there is a matching hardlink, skip further checking
 	// Name is the only non-hardlink-included field
 	for other := range candidates {
-		if os.SameFile(current.FileInfo, other.FileInfo) {
+		if areHardlinked(current, other) {
 			return other, current, t.options.MatchMode | matchHardlink
 		}
 	}
