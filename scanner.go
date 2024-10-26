@@ -204,6 +204,18 @@ func (f *scanner) selectAndSwap(current, match *fileRecord, m matchFlag) (swapMa
 		return true, nil
 	}
 
+	if f.options.TimestampBehavior != TimestampIgnore && f.options.TimestampBehavior != "" {
+		currentNewer := current.ModTime().After(match.ModTime())
+		wantNewer := f.options.TimestampBehavior == TimestampNewer
+
+		if currentNewer == wantNewer {
+			if f.options.Verbose {
+				fmt.Printf("  %s( %s ) kept\n", f.options.TimestampBehavior, current.RelPath)
+			}
+			return true, nil
+		}
+	}
+
 	return false, nil
 }
 

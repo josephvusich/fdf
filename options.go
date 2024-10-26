@@ -25,6 +25,20 @@ const (
 	VerbDelete
 )
 
+const (
+	TimestampIgnore = "ignore"
+	TimestampNewer  = "prefer-newer"
+	TimestampOlder  = "prefer-older"
+)
+
+var (
+	validTimestampFlags = map[string]struct{}{
+		TimestampIgnore: {},
+		TimestampNewer:  {},
+		TimestampOlder:  {},
+	}
+)
+
 func (v verb) PastTense() string {
 	switch v {
 	case VerbNone:
@@ -54,6 +68,8 @@ type options struct {
 	Exclude   matchers.RuleSet
 	MustKeep  matchers.RuleSet
 
+	TimestampBehavior string
+
 	Recursive bool
 
 	minSize    int64
@@ -67,6 +83,14 @@ type options struct {
 	DryRun              bool
 
 	JsonReport string
+}
+
+func keysToStringList(m map[string]struct{}) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return strings.Join(keys, ", ")
 }
 
 // OpenFile returns a reader that follows options.SkipHeader
@@ -265,6 +289,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.Var(unprotectDir, "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(mustKeep, "if-kept", "only remove files if the 'kept' file matches the provided `GLOB`")
 	fs.Var(mustKeepDir, "if-kept-dir", "only remove files if the 'kept' file is a descendant of `DIR`")
+	fs.StringVar(&o.TimestampBehavior, "timestamps", TimestampOlder, "`MODE` must be one of "+keysToStringList(validTimestampFlags))
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
 		"    range notation supported: name[offset:len,offset:len,...]\n"+
@@ -317,6 +342,11 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 
 	if o.CopyUnlinked && !o.splitLinks {
 		fmt.Println("--copy-unlinked is only valid with --copy")
+		badOptions = true
+	}
+
+	if _, ok := validTimestampFlags[o.TimestampBehavior]; !ok {
+		fmt.Println("--timestamps must be one of:", keysToStringList(validTimestampFlags))
 		badOptions = true
 	}
 

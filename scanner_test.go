@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/josephvusich/go-matchers"
 	"github.com/josephvusich/go-matchers/glob"
@@ -203,6 +204,51 @@ func TestScanner_LinkUnlink(t *testing.T) {
 	})
 }
 
+func TestScanner_Timestamps(t *testing.T) {
+	assert := require.New(t)
+
+	now := time.Now()
+	newTs := now.Add(time.Hour)
+	oldTs := now.Add(-time.Hour)
+
+	testTimestamps := func(aTime, bTime time.Time, mode string, expectA bool) {
+		l := &testLayout{
+			dirs: []string{
+				"./d",
+			},
+			content: map[string]string{
+				"a": "foobar",
+				"b": "foobar",
+			},
+			diffContent: nil,
+			diffSize:    nil,
+		}
+
+		setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+			scanner := newScanner()
+			assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rdv`, `--timestamps`, mode}))
+
+			assert.NoError(os.Chtimes("d/a", aTime, aTime))
+			assert.NoError(os.Chtimes("d/b", bTime, bTime))
+
+			assert.NoError(scanner.Scan())
+			l.contentOverride = true
+			l.content = map[string]string{}
+			if expectA {
+				l.content["d/a"] = "foobar"
+			} else {
+				l.content["d/b"] = "foobar"
+			}
+			validate(l)
+		})
+	}
+
+	testTimestamps(newTs, oldTs, "prefer-newer", true)
+	testTimestamps(newTs, oldTs, "prefer-older", false)
+	testTimestamps(oldTs, newTs, "prefer-newer", false)
+	testTimestamps(oldTs, newTs, "prefer-older", true)
+}
+
 func TestScanner_Delete(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
@@ -247,7 +293,7 @@ func TestScanner_DeleteProtect(t *testing.T) {
 	assert := require.New(t)
 	setupTest(assert, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
-		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `--protect`, `./b/**/*`, `-m`, `content`, `-z`, `0`}))
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `--protect`, `./b/**/*`, `-m`, `content`, `-z`, `0`, `--timestamps=ignore`}))
 		assert.True(scanner.options.deleteDupes)
 		assert.True(scanner.options.Recursive)
 		assert.Equal(matchContent, scanner.options.MatchMode)
@@ -596,7 +642,7 @@ func TestScanner_Parent(t *testing.T) {
 	}
 	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
-		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `content+parent`, `-z`, `0`}))
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `content+parent`, `-z`, `0`, `--timestamps=ignore`}))
 		assert.True(scanner.options.deleteDupes)
 		assert.True(scanner.options.Recursive)
 		assert.Equal(matchContent|matchParent, scanner.options.MatchMode)
@@ -649,7 +695,7 @@ func TestScanner_Path(t *testing.T) {
 	}
 	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
-		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `path+content`, `-z`, `0`}))
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `path+content`, `-z`, `0`, `--timestamps=ignore`}))
 		assert.True(scanner.options.deleteDupes)
 		assert.True(scanner.options.Recursive)
 		assert.Equal(matchContent|matchParent|matchPathSuffix, scanner.options.MatchMode)
@@ -706,7 +752,7 @@ func TestScanner_PathSuffix(t *testing.T) {
 	}
 	setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
 		scanner := newScanner()
-		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `relpath+content`, `-z`, `0`}))
+		assert.Empty(scanner.options.ParseArgs([]string{`fdf`, `-rd`, `-m`, `relpath+content`, `-z`, `0`, `--timestamps=ignore`}))
 		assert.True(scanner.options.deleteDupes)
 		assert.True(scanner.options.Recursive)
 		assert.Equal(matchContent|matchParent|matchPathSuffix, scanner.options.MatchMode)

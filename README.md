@@ -76,6 +76,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
   -r, --recursive           traverse subdirectories
       --skip-footer LENGTH  skip LENGTH bytes at the end of each file when comparing
   -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
+      --timestamps MODE     MODE must be one of ignore, prefer-newer, prefer-older (default "prefer-older")
       --unprotect value     remove files added by --protect
                             may appear more than once
                             rules are applied in the order specified
