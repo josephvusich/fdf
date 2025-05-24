@@ -259,8 +259,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	excludeDir, includeDir := o.Exclude.FlagValues(globMatcherFromDir)
 
 	o.MustKeep.DefaultInclude = true
-	mustKeep, _ := o.MustKeep.FlagValues(globMatcher)
-	mustKeepDir, _ := o.MustKeep.FlagValues(globMatcherFromDir)
+	mustKeep, mustNotKeep := o.MustKeep.FlagValues(globMatcher)
+	mustKeepDir, mustNotKeepDir := o.MustKeep.FlagValues(globMatcherFromDir)
 
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
@@ -288,7 +288,9 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
 	fs.Var(unprotectDir, "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(mustKeep, "if-kept", "only remove files if the 'kept' file matches the provided `GLOB`")
+	fs.Var(mustNotKeep, "if-not-kept", "only remove files if the 'kept' file does NOT match the provided `GLOB`")
 	fs.Var(mustKeepDir, "if-kept-dir", "only remove files if the 'kept' file is a descendant of `DIR`")
+	fs.Var(mustNotKeepDir, "if-not-kept-dir", "only remove files if the 'kept' file is NOT a descendant of `DIR`")
 	fs.StringVar(&o.TimestampBehavior, "timestamps", TimestampOlder, "`MODE` must be one of "+keysToStringList(validTimestampFlags))
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+

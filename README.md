@@ -25,63 +25,65 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
         [-m FIELDS] [-z BYTES] [-n LENGTH]
         [--protect PATTERN] [--unprotect PATTERN] [directory ...]
 
-  -a, --clone               (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
-  -c, --copy                (verb) split existing hardlinks via copy
-                            mutually exclusive with --ignore-hardlinks
-      --copy-unlinked       always copy over matching files even if not hardlinked
-  -d, --delete              (verb) delete duplicate files
-  -t, --dry-run             don't actually do anything, just show what would be done
-      --exclude GLOB        exclude files matching GLOB from scanning
-      --exclude-dir DIR     exclude DIR from scanning, throws error if DIR does not exist
-      --help                show this help screen and exit
-      --if-kept GLOB        only remove files if the 'kept' file matches the provided GLOB
-      --if-kept-dir DIR     only remove files if the 'kept' file is a descendant of DIR
-      --ignore-content      allow --match without 'content'
-  -h, --ignore-hardlinks    ignore existing hardlinks
-                            mutually exclusive with --copy
-      --include GLOB        include GLOB, opposite of --exclude
-      --include-dir DIR     include DIR, throws error if DIR does not exist
-      --json-report FILE    on completion, dump JSON match data to FILE
-  -l, --link                (verb) hardlink duplicate files
-  -m, --match FIELDS        Evaluate FIELDS to determine file equality, where valid fields are:
-                              name (case insensitive)
-                                range notation supported: name[offset:len,offset:len,...]
-                                  name[0:-1] whole string
-                                  name[0:-2] all except last character
-                                  name[1:2]  second and third characters
-                                  name[-1:1] last character
-                                  name[-3:3] last 3 characters
-                              copyname (case insensitive)
-                                'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content
-                              namesuffix (case insensitive)
-                                one filename must end with the other, e.g.: 'foo-1.bar' and '1.bar'
-                              nameprefix (case insensitive)
-                                one filename must begin with the other, e.g., 'foo-1.bar' and 'foo.bar'
-                              parent (case insensitive name of immediate parent directory)
-                                range notation supported: see 'name' for examples
-                              path
-                                match parent directory path
-                              relpath
-                                match parent directory path relative to input dir(s)
-                              size
-                              content (default, also implies size)
-                            specify multiple fields using '+', e.g.: name+content
-  -z, --minimum-size BYTES  skip files smaller than BYTES, must be greater than the sum of --skip-header and --skip-footer (default 1)
-      --preserve PATTERN    (deprecated) alias for --protect PATTERN
-  -p, --protect PATTERN     prevent files matching glob PATTERN from being modified or deleted
-                            may appear more than once to support multiple patterns
-                            rules are applied in the order specified
-      --protect-dir DIR     similar to --protect 'DIR/**/*', but throws error if DIR does not exist
-  -q, --quiet               don't display current filename during scanning
-  -r, --recursive           traverse subdirectories
-      --skip-footer LENGTH  skip LENGTH bytes at the end of each file when comparing
-  -n, --skip-header LENGTH  skip LENGTH bytes at the beginning of each file when comparing
-      --timestamps MODE     MODE must be one of ignore, prefer-newer, prefer-older (default "prefer-older")
-      --unprotect value     remove files added by --protect
-                            may appear more than once
-                            rules are applied in the order specified
-      --unprotect-dir DIR   similar to --unprotect 'DIR/**/*', but throws error if DIR does not exist
-  -v, --verbose             display additional details regarding protected paths
+  -a, --clone                (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
+  -c, --copy                 (verb) split existing hardlinks via copy
+                             mutually exclusive with --ignore-hardlinks
+      --copy-unlinked        always copy over matching files even if not hardlinked
+  -d, --delete               (verb) delete duplicate files
+  -t, --dry-run              don't actually do anything, just show what would be done
+      --exclude GLOB         exclude files matching GLOB from scanning
+      --exclude-dir DIR      exclude DIR from scanning, throws error if DIR does not exist
+      --help                 show this help screen and exit
+      --if-kept GLOB         only remove files if the 'kept' file matches the provided GLOB
+      --if-kept-dir DIR      only remove files if the 'kept' file is a descendant of DIR
+      --if-not-kept GLOB     only remove files if the 'kept' file does NOT match the provided GLOB
+      --if-not-kept-dir DIR  only remove files if the 'kept' file is NOT a descendant of DIR
+      --ignore-content       allow --match without 'content'
+  -h, --ignore-hardlinks     ignore existing hardlinks
+                             mutually exclusive with --copy
+      --include GLOB         include GLOB, opposite of --exclude
+      --include-dir DIR      include DIR, throws error if DIR does not exist
+      --json-report FILE     on completion, dump JSON match data to FILE
+  -l, --link                 (verb) hardlink duplicate files
+  -m, --match FIELDS         Evaluate FIELDS to determine file equality, where valid fields are:
+                               name (case insensitive)
+                                 range notation supported: name[offset:len,offset:len,...]
+                                   name[0:-1] whole string
+                                   name[0:-2] all except last character
+                                   name[1:2]  second and third characters
+                                   name[-1:1] last character
+                                   name[-3:3] last 3 characters
+                               copyname (case insensitive)
+                                 'foo.bar' == 'foo (1).bar' == 'Copy of foo.bar', also requires +size or +content
+                               namesuffix (case insensitive)
+                                 one filename must end with the other, e.g.: 'foo-1.bar' and '1.bar'
+                               nameprefix (case insensitive)
+                                 one filename must begin with the other, e.g., 'foo-1.bar' and 'foo.bar'
+                               parent (case insensitive name of immediate parent directory)
+                                 range notation supported: see 'name' for examples
+                               path
+                                 match parent directory path
+                               relpath
+                                 match parent directory path relative to input dir(s)
+                               size
+                               content (default, also implies size)
+                             specify multiple fields using '+', e.g.: name+content
+  -z, --minimum-size BYTES   skip files smaller than BYTES, must be greater than the sum of --skip-header and --skip-footer (default 1)
+      --preserve PATTERN     (deprecated) alias for --protect PATTERN
+  -p, --protect PATTERN      prevent files matching glob PATTERN from being modified or deleted
+                             may appear more than once to support multiple patterns
+                             rules are applied in the order specified
+      --protect-dir DIR      similar to --protect 'DIR/**/*', but throws error if DIR does not exist
+  -q, --quiet                don't display current filename during scanning
+  -r, --recursive            traverse subdirectories
+      --skip-footer LENGTH   skip LENGTH bytes at the end of each file when comparing
+  -n, --skip-header LENGTH   skip LENGTH bytes at the beginning of each file when comparing
+      --timestamps MODE      MODE must be one of ignore, prefer-newer, prefer-older (default "prefer-older")
+      --unprotect value      remove files added by --protect
+                             may appear more than once
+                             rules are applied in the order specified
+      --unprotect-dir DIR    similar to --unprotect 'DIR/**/*', but throws error if DIR does not exist
+  -v, --verbose              display additional details regarding protected paths
 ```
 
 ## Copy-on-write Cloning
