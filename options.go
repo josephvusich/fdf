@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"github.com/josephvusich/go-matchers"
 	"github.com/josephvusich/go-matchers/glob"
 )
+
+const fileBufferSize = 0x100000 // 1MB
 
 type verb int
 
@@ -129,7 +132,7 @@ type limitReadCloser struct {
 
 func newLimitReadCloser(f *os.File, n int64) *limitReadCloser {
 	return &limitReadCloser{
-		Reader: io.LimitReader(f, n),
+		Reader: bufio.NewReaderSize(io.LimitReader(f, n), fileBufferSize),
 		Closer: f,
 	}
 }
