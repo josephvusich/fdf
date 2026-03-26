@@ -29,6 +29,148 @@ func (r *eofWithDataReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+func TestEqualReaders_IdenticalContent(t *testing.T) {
+	tests := []struct {
+		name    string
+		content []byte
+	}{
+		{"empty", nil},
+		{"small", []byte("hello world")},
+		{"at buffer boundary", bytes.Repeat([]byte("x"), 0xFFFFF)},
+		{"larger than buffer", bytes.Repeat([]byte("y"), 0xFFFFF+1024)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert := require.New(t)
+			r1 := bytes.NewReader(tc.content)
+			r2 := bytes.NewReader(tc.content)
+			assert.True(equalReaders(r1, r2))
+		})
+	}
+}
+
+func TestEqualReaders_DifferentContent(t *testing.T) {
+	assert := require.New(t)
+
+	// Different in first byte
+	r1 := bytes.NewReader([]byte("aaaa"))
+	r2 := bytes.NewReader([]byte("baaa"))
+	assert.False(equalReaders(r1, r2))
+
+	// Different in last byte
+	data1 := bytes.Repeat([]byte("a"), 1024)
+	data2 := make([]byte, 1024)
+	copy(data2, data1)
+	data2[len(data2)-1] = 'z'
+	assert.False(equalReaders(bytes.NewReader(data1), bytes.NewReader(data2)))
+}
+
+func TestEqualFiles_IdenticalFiles(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	content := []byte("duplicate content here")
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, content, 0644))
+	assert.NoError(os.WriteFile(f2, content, 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+	o := &options{}
+
+	assert.True(equalFiles(r1, r2, o))
+	assert.True(r1.everMatchedContent)
+	assert.True(r2.everMatchedContent)
+}
+
+func TestEqualFiles_DifferentFiles(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, []byte("content A"), 0644))
+	assert.NoError(os.WriteFile(f2, []byte("content B"), 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+	o := &options{}
+
+	assert.False(equalFiles(r1, r2, o))
+}
+
+func TestEqualFiles_NonexistentFile(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	f1 := filepath.Join(dir, "exists.txt")
+	f2 := filepath.Join(dir, "missing.txt")
+	assert.NoError(os.WriteFile(f1, []byte("data"), 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, &fakeStat{size: 4}, f2, "")
+	o := &options{}
+
+	assert.False(equalFiles(r1, r2, o))
+}
+
+func TestAreHardlinked_SameFile(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	original := filepath.Join(dir, "original.txt")
+	link := filepath.Join(dir, "link.txt")
+	assert.NoError(os.WriteFile(original, []byte("data"), 0644))
+	assert.NoError(os.Link(original, link))
+
+	st1, err := os.Stat(original)
+	assert.NoError(err)
+	st2, err := os.Stat(link)
+	assert.NoError(err)
+
+	r1 := newFileRecord(original, st1, original, "")
+	r2 := newFileRecord(link, st2, link, "")
+
+	assert.True(areHardlinked(r1, r2))
+	assert.True(r1.everMatchedContent)
+	assert.True(r2.everMatchedContent)
+}
+
+func TestAreHardlinked_DifferentFiles(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, []byte("data"), 0644))
+	assert.NoError(os.WriteFile(f2, []byte("data"), 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+
+	assert.False(areHardlinked(r1, r2))
+}
+
 // TestEqualReaders_EOFWithData_DifferentFinalChunk ensures equalReaders
 // compares data returned alongside io.EOF. Two readers that differ only in
 // their final bytes — delivered in the same Read as io.EOF — must be reported
