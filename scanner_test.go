@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -893,4 +894,41 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 			}
 		}
 	})
+}
+
+func TestUSubtract(t *testing.T) {
+	assert := require.New(t)
+
+	// 5 - 1 = 4
+	var x uint64 = 5
+	atomic.AddUint64(&x, uSubtract(1))
+	assert.Equal(uint64(4), x)
+
+	// n - n = 0
+	x = 42
+	atomic.AddUint64(&x, uSubtract(42))
+	assert.Equal(uint64(0), x)
+
+	// uSubtract(0) is identity (adding 0)
+	assert.Equal(uint64(0), uSubtract(0))
+}
+
+func TestTotal_AddRemoveGet(t *testing.T) {
+	assert := require.New(t)
+
+	var tot total
+
+	r1 := &fileRecord{FileInfo: &fakeStat{size: 100}}
+	r2 := &fileRecord{FileInfo: &fakeStat{size: 200}}
+
+	tot.Add(r1)
+	tot.Add(r2)
+	count, size := tot.Get()
+	assert.Equal(uint64(2), count)
+	assert.Equal(uint64(300), size)
+
+	tot.Remove(r1)
+	count, size = tot.Get()
+	assert.Equal(uint64(1), count)
+	assert.Equal(uint64(200), size)
 }
