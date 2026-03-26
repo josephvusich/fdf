@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/dustin/go-humanize v1.0.0
+	github.com/hashicorp/go-memdb v1.3.5
 	github.com/josephvusich/go-getopt v1.0.0
 	github.com/josephvusich/go-matchers v1.0.0
 	github.com/mattn/go-zglob v0.0.3
