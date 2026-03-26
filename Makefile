@@ -1,0 +1,9 @@
+.PHONY: install test
+
+test:
+	go vet ./...
+	go test -coverprofile=coverage.out $(TESTFLAGS) ./...
+	go tool cover -func=coverage.out | tail -1
+
+install: test
+	go install ./...
