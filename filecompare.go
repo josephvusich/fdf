@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"hash"
 	"io"
 	"os"
+
+	"github.com/minio/highwayhash"
 )
 
 func areHardlinked(r1, r2 *fileRecord) bool {
@@ -28,12 +32,45 @@ func equalFiles(r1, r2 *fileRecord, o *options) bool {
 	}
 	defer f2.Close()
 
-	if equalReaders(f1, f2) {
+	var h1, h2 hash.Hash
+	var reader1, reader2 io.Reader = f1, f2
+
+	if r1.UnverifiedChecksum {
+		h1, _ = highwayhash.New128(hashKeyFromSize(r1.Size()))
+		reader1 = io.TeeReader(f1, h1)
+	}
+	if r2.UnverifiedChecksum {
+		h2, _ = highwayhash.New128(hashKeyFromSize(r2.Size()))
+		reader2 = io.TeeReader(f2, h2)
+	}
+
+	if equalReaders(reader1, reader2) {
 		r1.everMatchedContent = true
 		r2.everMatchedContent = true
+		if h1 != nil {
+			verifyCachedHash(r1, h1.Sum(nil), o)
+		}
+		if h2 != nil {
+			verifyCachedHash(r2, h2.Sum(nil), o)
+		}
 		return true
 	}
 	return false
+}
+
+func verifyCachedHash(r *fileRecord, computed []byte, o *options) {
+	r.UnverifiedChecksum = false
+
+	if bytes.Equal(r.Checksum.hash[:], computed) {
+		return
+	}
+
+	fmt.Printf("warning: %s: cached hash mismatch, correcting\n", r.FilePath)
+	copy(r.Checksum.hash[:], computed)
+
+	if o.XattrCache && !o.CacheReadonly {
+		storeCachedHash(r.FilePath, r.FileInfo, r.Checksum)
+	}
 }
 
 func equalReaders(f1, f2 io.Reader) bool {

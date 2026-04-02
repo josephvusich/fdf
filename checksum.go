@@ -34,6 +34,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 		} else if cached.size != 0 {
 			r.Checksum = cached
 			r.HasChecksum = true
+			r.UnverifiedChecksum = true
 			if updateDB {
 				t.db.insert(r)
 			}

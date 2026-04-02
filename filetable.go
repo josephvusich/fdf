@@ -60,8 +60,9 @@ type fileRecord struct {
 	FoldedParent string
 
 	os.FileInfo
-	HasChecksum    bool
-	FailedChecksum error
+	HasChecksum        bool
+	UnverifiedChecksum bool
+	FailedChecksum     error
 	Checksum       checksum
 
 	// true/false indicates whether this file is protected from destructive operations.

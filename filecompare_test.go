@@ -254,3 +254,103 @@ func TestEqualFiles_SkipHeaderAndFooter_FooterLeak(t *testing.T) {
 	// Files differ only in the footer, which should be skipped.
 	assert.True(equalFiles(r1, r2, o))
 }
+
+func TestEqualFiles_VerifyCachedHash_Correct(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	content := []byte("duplicate content here")
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, content, 0644))
+	assert.NoError(os.WriteFile(f2, content, 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+	o := &options{}
+
+	// Compute the correct hash for r1
+	fr, err := o.OpenFile(f1)
+	assert.NoError(err)
+	h, err := hwhChecksum(fr, int64(len(content)))
+	fr.Close()
+	assert.NoError(err)
+
+	r1.HasChecksum = true
+	r1.UnverifiedChecksum = true
+	r1.Checksum.size = st1.Size()
+	copy(r1.Checksum.hash[:], h)
+
+	assert.True(equalFiles(r1, r2, o))
+	assert.False(r1.UnverifiedChecksum, "UnverifiedChecksum should be cleared after verification")
+	assert.Equal(h, r1.Checksum.hash[:], "correct hash should be unchanged")
+}
+
+func TestEqualFiles_VerifyCachedHash_Mismatch(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	content := []byte("duplicate content here")
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, content, 0644))
+	assert.NoError(os.WriteFile(f2, content, 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+	o := &options{}
+
+	// Compute the correct hash for comparison later
+	fr, err := o.OpenFile(f1)
+	assert.NoError(err)
+	correctHash, err := hwhChecksum(fr, int64(len(content)))
+	fr.Close()
+	assert.NoError(err)
+
+	// Set a deliberately wrong cached hash on r1
+	r1.HasChecksum = true
+	r1.UnverifiedChecksum = true
+	r1.Checksum.size = st1.Size()
+	r1.Checksum.hash = [ChecksumBlockSize]byte{0xDE, 0xAD, 0xBE, 0xEF}
+
+	assert.True(equalFiles(r1, r2, o))
+	assert.False(r1.UnverifiedChecksum, "UnverifiedChecksum should be cleared after verification")
+	assert.Equal(correctHash, r1.Checksum.hash[:], "hash should be corrected to the actual value")
+}
+
+func TestEqualFiles_VerifyCachedHash_NotTriggeredOnMismatchedFiles(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	f1 := filepath.Join(dir, "file1.txt")
+	f2 := filepath.Join(dir, "file2.txt")
+	assert.NoError(os.WriteFile(f1, []byte("content A"), 0644))
+	assert.NoError(os.WriteFile(f2, []byte("content B"), 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+	o := &options{}
+
+	r1.HasChecksum = true
+	r1.UnverifiedChecksum = true
+	r1.Checksum.size = st1.Size()
+	r1.Checksum.hash = [ChecksumBlockSize]byte{0xDE, 0xAD}
+
+	assert.False(equalFiles(r1, r2, o))
+	assert.True(r1.UnverifiedChecksum, "UnverifiedChecksum should remain true when files differ (incomplete read)")
+}
