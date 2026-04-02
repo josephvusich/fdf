@@ -52,7 +52,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	}
 	defer f.Close()
 
-	b, err := hwhChecksum(f, r.Size())
+	b, err := hwhChecksum(f, r.Size()-t.options.SkipHeader-t.options.SkipFooter)
 	if err != nil {
 		r.FailedChecksum = err
 		t.totals.Errors.Add(r)
@@ -84,9 +84,13 @@ func hwhChecksum(r io.Reader, size int64) ([]byte, error) {
 		return nil, err
 	}
 
-	_, err = io.Copy(h, r)
+	n, err := io.Copy(h, r)
 	if err != nil {
 		return nil, err
+	}
+
+	if n != size {
+		return nil, fmt.Errorf("expected %d bytes, got %d", size, n)
 	}
 
 	return h.Sum(nil), nil
