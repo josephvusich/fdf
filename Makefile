@@ -1,4 +1,4 @@
-.PHONY: install test
+.PHONY: install test hooks
 
 test:
 	go vet ./...
@@ -7,3 +7,7 @@ test:
 
 install: test
 	go install ./...
+
+hooks:
+	cp hooks/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
