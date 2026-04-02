@@ -50,6 +50,20 @@ func TestHwhChecksum_ResultSize(t *testing.T) {
 	assert.Len(h, ChecksumBlockSize)
 }
 
+func TestHwhChecksum_SizeMismatch(t *testing.T) {
+	assert := require.New(t)
+
+	data := []byte("hello world")
+
+	_, err := hwhChecksum(bytes.NewReader(data), int64(len(data))+5)
+	assert.Error(err)
+	assert.Contains(err.Error(), "expected 16 bytes, got 11")
+
+	_, err = hwhChecksum(bytes.NewReader(data), int64(len(data))-3)
+	assert.Error(err)
+	assert.Contains(err.Error(), "expected 8 bytes, got 11")
+}
+
 func BenchmarkChecksum_hwhContinuous(b *testing.B) {
 	assert := require.New(b)
 	buf := make([]byte, 2048*2048*100)
