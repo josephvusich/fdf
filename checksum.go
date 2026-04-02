@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -10,21 +10,10 @@ import (
 
 const ChecksumBlockSize = 16
 
-// 32 bytes of random hash key
-var hashKey []byte
-
-func init() {
-	hashKey = make([]byte, 32)
-	rand.Read(hashKey)
-
-	h, err := highwayhash.New128(hashKey)
-	if err != nil {
-		panic(err)
-	}
-
-	if h.Size() != ChecksumBlockSize {
-		panic("unexpected block size")
-	}
+func hashKeyFromSize(size int64) []byte {
+	key := make([]byte, 32)
+	binary.BigEndian.PutUint64(key, uint64(size))
+	return key
 }
 
 // updateDB is false if the file being checksummed has not yet been added to the DB
@@ -35,6 +24,21 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 
 	if r.FailedChecksum != nil {
 		return r.FailedChecksum
+	}
+
+	if t.options.XattrCache {
+		cached, err := tryLoadCachedHash(r.FilePath, r.FileInfo)
+		if err != nil {
+			fmt.Printf("warning: %s: %s\n", r.RelPath, err)
+			t.options.XattrCache = false
+		} else if cached.size != 0 {
+			r.Checksum = cached
+			r.HasChecksum = true
+			if updateDB {
+				t.db.insert(r)
+			}
+			return nil
+		}
 	}
 
 	t.progress(r.RelPath, false)
@@ -48,7 +52,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	}
 	defer f.Close()
 
-	b, err := hwhChecksum(f)
+	b, err := hwhChecksum(f, r.Size())
 	if err != nil {
 		r.FailedChecksum = err
 		t.totals.Errors.Add(r)
@@ -60,6 +64,13 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	copy(r.Checksum.hash[:], b)
 	r.HasChecksum = true
 
+	if t.options.XattrCache {
+		if err := storeCachedHash(r.FilePath, r.FileInfo, r.Checksum); err != nil {
+			fmt.Printf("warning: %s: %s\n", r.RelPath, err)
+			t.options.XattrCache = false
+		}
+	}
+
 	if updateDB {
 		// Update indexes with new checksum
 		t.db.insert(r)
@@ -67,8 +78,8 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	return nil
 }
 
-func hwhChecksum(r io.Reader) ([]byte, error) {
-	h, err := highwayhash.New128(hashKey)
+func hwhChecksum(r io.Reader, size int64) ([]byte, error) {
+	h, err := highwayhash.New128(hashKeyFromSize(size))
 	if err != nil {
 		return nil, err
 	}

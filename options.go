@@ -87,6 +87,9 @@ type options struct {
 	DryRun              bool
 
 	JsonReport string
+
+	Cache      string
+	XattrCache bool
 }
 
 func keysToStringList(m map[string]struct{}) string {
@@ -323,6 +326,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"specify multiple fields using '+', e.g.: name+content")
 	allowNoContent := fs.Bool("ignore-content", false, "allow --match without 'content'")
 	fs.StringVar(&o.JsonReport, "json-report", "", "on completion, dump JSON match data to `FILE`")
+	fs.StringVar(&o.Cache, "cache", "", "cache `METHOD` for file hashes (supported: xattr)\nmutually exclusive with --skip-header and --skip-footer")
 
 	fs.Alias("a", "clone")
 	fs.Alias("c", "copy")
@@ -381,6 +385,18 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		fmt.Println("Invalid flag combination: --copy and --ignore-hardlinks are mutually exclusive")
 		badOptions = true
 	}
+
+	if o.Cache != "" && o.Cache != "xattr" {
+		fmt.Printf("--cache must be 'xattr', got '%s'\n", o.Cache)
+		badOptions = true
+	}
+
+	if o.Cache == "xattr" && (o.SkipHeader > 0 || o.SkipFooter > 0) {
+		fmt.Println("Invalid flag combination: --cache=xattr is mutually exclusive with --skip-header/--skip-footer")
+		badOptions = true
+	}
+
+	o.XattrCache = o.Cache == "xattr"
 
 	if *helpFlag {
 		printUsage()

@@ -25,6 +25,8 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
         [-m FIELDS] [-z BYTES] [-n LENGTH]
         [--protect PATTERN] [--unprotect PATTERN] [directory ...]
 
+      --cache METHOD         cache METHOD for file hashes (supported: xattr)
+                             mutually exclusive with --skip-header and --skip-footer
   -a, --clone                (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
   -c, --copy                 (verb) split existing hardlinks via copy
                              mutually exclusive with --ignore-hardlinks
