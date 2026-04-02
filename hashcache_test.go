@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"hash/crc32"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,7 +39,7 @@ func TestHashCache_RoundTrip(t *testing.T) {
 
 	assert.NoError(storeCachedHash(f, info, cs))
 
-	loaded, err := tryLoadCachedHash(f, info)
+	loaded, err := tryLoadCachedHash(f, info, 0)
 	assert.NoError(err)
 	assert.Equal(cs, loaded)
 }
@@ -53,7 +54,7 @@ func TestHashCache_Miss_NoXattr(t *testing.T) {
 	info, err := os.Stat(f)
 	assert.NoError(err)
 
-	loaded, err := tryLoadCachedHash(f, info)
+	loaded, err := tryLoadCachedHash(f, info, 0)
 	assert.Equal(checksum{}, loaded)
 	// Error is platform-dependent (ENODATA on Linux, etc.) but should be non-nil or nil depending on
 	// whether the filesystem reports "no such attribute" as an error. Either way, checksum should be zero.
@@ -83,7 +84,7 @@ func TestHashCache_Miss_SizeChanged(t *testing.T) {
 	info2, err := os.Stat(f)
 	assert.NoError(err)
 
-	loaded, err := tryLoadCachedHash(f, info2)
+	loaded, err := tryLoadCachedHash(f, info2, 0)
 	assert.NoError(err)
 	assert.Equal(checksum{}, loaded)
 }
@@ -113,7 +114,7 @@ func TestHashCache_Miss_MtimeChanged(t *testing.T) {
 	info2, err := os.Stat(f)
 	assert.NoError(err)
 
-	loaded, err := tryLoadCachedHash(f, info2)
+	loaded, err := tryLoadCachedHash(f, info2, 0)
 	assert.NoError(err)
 	assert.Equal(checksum{}, loaded)
 }
@@ -142,7 +143,7 @@ func TestHashCache_Error_CRCMismatch(t *testing.T) {
 	data[26] ^= 0xFF // flip a hash byte
 	assert.NoError(setXattr(f, xattrKey, data))
 
-	loaded, err := tryLoadCachedHash(f, info)
+	loaded, err := tryLoadCachedHash(f, info, 0)
 	assert.Error(err)
 	assert.Contains(err.Error(), "CRC32 mismatch")
 	assert.Equal(checksum{}, loaded)
@@ -173,7 +174,7 @@ func TestHashCache_Error_VersionMismatch(t *testing.T) {
 	binary.BigEndian.PutUint32(data[xattrDataSize:], crc32.ChecksumIEEE(data[:xattrDataSize]))
 	assert.NoError(setXattr(f, xattrKey, data))
 
-	loaded, err := tryLoadCachedHash(f, info)
+	loaded, err := tryLoadCachedHash(f, info, 0)
 	assert.Error(err)
 	assert.Contains(err.Error(), "version mismatch")
 	assert.Equal(checksum{}, loaded)
@@ -194,8 +195,82 @@ func TestHashCache_Error_WrongLength(t *testing.T) {
 	// Write truncated data
 	assert.NoError(setXattr(f, xattrKey, []byte("too short")))
 
-	loaded, err := tryLoadCachedHash(f, info)
+	loaded, err := tryLoadCachedHash(f, info, 0)
 	assert.Error(err)
 	assert.Contains(err.Error(), "unexpected size")
+	assert.Equal(checksum{}, loaded)
+}
+
+func TestHashCache_Miss_MaxAge(t *testing.T) {
+	assert := require.New(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "testfile")
+	assert.NoError(os.WriteFile(f, []byte("hello world"), 0644))
+
+	xattrSupported(t, f)
+
+	info, err := os.Stat(f)
+	assert.NoError(err)
+
+	cs := checksum{
+		size: info.Size(),
+		hash: [ChecksumBlockSize]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+	}
+	assert.NoError(storeCachedHash(f, info, cs))
+
+	// Use a minCacheTime far in the future to ensure the entry is rejected
+	futureNanos := time.Now().Add(time.Hour).UnixNano()
+	loaded, err := tryLoadCachedHash(f, info, futureNanos)
+	assert.NoError(err)
+	assert.Equal(checksum{}, loaded)
+}
+
+func TestHashCache_Hit_MaxAge(t *testing.T) {
+	assert := require.New(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "testfile")
+	assert.NoError(os.WriteFile(f, []byte("hello world"), 0644))
+
+	xattrSupported(t, f)
+
+	info, err := os.Stat(f)
+	assert.NoError(err)
+
+	cs := checksum{
+		size: info.Size(),
+		hash: [ChecksumBlockSize]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+	}
+	assert.NoError(storeCachedHash(f, info, cs))
+
+	// Use a minCacheTime in the past to ensure the entry is accepted
+	pastNanos := time.Now().Add(-time.Hour).UnixNano()
+	loaded, err := tryLoadCachedHash(f, info, pastNanos)
+	assert.NoError(err)
+	assert.Equal(cs, loaded)
+}
+
+func TestHashCache_Miss_MaxAgeInvalidateAll(t *testing.T) {
+	assert := require.New(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "testfile")
+	assert.NoError(os.WriteFile(f, []byte("hello world"), 0644))
+
+	xattrSupported(t, f)
+
+	info, err := os.Stat(f)
+	assert.NoError(err)
+
+	cs := checksum{
+		size: info.Size(),
+		hash: [ChecksumBlockSize]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+	}
+	assert.NoError(storeCachedHash(f, info, cs))
+
+	// math.MaxInt64 should invalidate all entries
+	loaded, err := tryLoadCachedHash(f, info, math.MaxInt64)
+	assert.NoError(err)
 	assert.Equal(checksum{}, loaded)
 }

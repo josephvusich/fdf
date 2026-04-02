@@ -25,8 +25,10 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
         [-m FIELDS] [-z BYTES] [-n LENGTH]
         [--protect PATTERN] [--unprotect PATTERN] [directory ...]
 
-      --cache METHOD         cache METHOD for file hashes (supported: xattr)
+      --cache METHOD         cache METHOD for file hashes (supported: xattr, xattr:ro)
                              mutually exclusive with --skip-header and --skip-footer
+      --cache-max-age AGE    ignore cached hashes older than AGE
+                             accepted formats: Go duration (1h, 30m), unix timestamp, or 0s to invalidate all
   -a, --clone                (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
   -c, --copy                 (verb) split existing hardlinks via copy
                              mutually exclusive with --ignore-hardlinks

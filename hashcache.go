@@ -14,7 +14,7 @@ const (
 	xattrSize     = xattrDataSize + 4
 )
 
-func tryLoadCachedHash(path string, info os.FileInfo) (cs checksum, err error) {
+func tryLoadCachedHash(path string, info os.FileInfo, minCacheTime int64) (cs checksum, err error) {
 	data, err := getXattr(path, xattrKey)
 	if err != nil {
 		return cs, err
@@ -35,7 +35,10 @@ func tryLoadCachedHash(path string, info os.FileInfo) (cs checksum, err error) {
 		return cs, fmt.Errorf("xattr cache: version mismatch (stored %d, expected %d)", version, xattrVersion)
 	}
 
-	// Skip cache timestamp at offset 2 (reserved for future expiration)
+	cacheTimestamp := int64(binary.BigEndian.Uint64(data[2:10]))
+	if cacheTimestamp < minCacheTime {
+		return cs, nil
+	}
 
 	cachedSize := int64(binary.BigEndian.Uint64(data[10:18]))
 	cachedMtime := int64(binary.BigEndian.Uint64(data[18:26]))

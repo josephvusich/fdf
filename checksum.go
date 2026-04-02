@@ -27,7 +27,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	}
 
 	if t.options.XattrCache {
-		cached, err := tryLoadCachedHash(r.FilePath, r.FileInfo)
+		cached, err := tryLoadCachedHash(r.FilePath, r.FileInfo, t.options.CacheMinTime)
 		if err != nil {
 			fmt.Printf("warning: %s: %s\n", r.RelPath, err)
 			t.options.XattrCache = false
@@ -64,7 +64,7 @@ func (t *fileTable) Checksum(r *fileRecord, updateDB bool) error {
 	copy(r.Checksum.hash[:], b)
 	r.HasChecksum = true
 
-	if t.options.XattrCache {
+	if t.options.XattrCache && !t.options.CacheReadonly {
 		if err := storeCachedHash(r.FilePath, r.FileInfo, r.Checksum); err != nil {
 			fmt.Printf("warning: %s: %s\n", r.RelPath, err)
 			t.options.XattrCache = false

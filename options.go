@@ -6,11 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/josephvusich/go-getopt"
 	"github.com/josephvusich/go-matchers"
@@ -88,8 +91,10 @@ type options struct {
 
 	JsonReport string
 
-	Cache      string
-	XattrCache bool
+	Cache         string
+	XattrCache    bool
+	CacheReadonly bool
+	CacheMinTime  int64
 }
 
 func keysToStringList(m map[string]struct{}) string {
@@ -326,7 +331,8 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		"specify multiple fields using '+', e.g.: name+content")
 	allowNoContent := fs.Bool("ignore-content", false, "allow --match without 'content'")
 	fs.StringVar(&o.JsonReport, "json-report", "", "on completion, dump JSON match data to `FILE`")
-	fs.StringVar(&o.Cache, "cache", "", "cache `METHOD` for file hashes (supported: xattr)\nmutually exclusive with --skip-header and --skip-footer")
+	fs.StringVar(&o.Cache, "cache", "", "cache `METHOD` for file hashes (supported: xattr, xattr:ro)\nmutually exclusive with --skip-header and --skip-footer")
+	cacheMaxAge := fs.String("cache-max-age", "", "ignore cached hashes older than `AGE`\naccepted formats: Go duration (1h, 30m), unix timestamp, or 0s to invalidate all")
 
 	fs.Alias("a", "clone")
 	fs.Alias("c", "copy")
@@ -386,14 +392,40 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		badOptions = true
 	}
 
-	if o.Cache != "" && o.Cache != "xattr" {
-		fmt.Printf("--cache must be 'xattr', got '%s'\n", o.Cache)
+	switch o.Cache {
+	case "xattr:ro":
+		o.CacheReadonly = true
+		o.Cache = "xattr"
+	case "xattr", "":
+		// valid
+	default:
+		fmt.Printf("--cache must be 'xattr' or 'xattr:ro', got '%s'\n", o.Cache)
 		badOptions = true
 	}
 
 	if o.Cache == "xattr" && (o.SkipHeader > 0 || o.SkipFooter > 0) {
 		fmt.Println("Invalid flag combination: --cache=xattr is mutually exclusive with --skip-header/--skip-footer")
 		badOptions = true
+	}
+
+	if *cacheMaxAge != "" && o.Cache != "xattr" {
+		fmt.Println("--cache-max-age requires --cache=xattr or --cache=xattr:ro")
+		badOptions = true
+	}
+
+	if *cacheMaxAge != "" {
+		if d, err := time.ParseDuration(*cacheMaxAge); err == nil {
+			if d == 0 {
+				o.CacheMinTime = math.MaxInt64
+			} else {
+				o.CacheMinTime = time.Now().Add(-d).UnixNano()
+			}
+		} else if ts, err := strconv.ParseInt(*cacheMaxAge, 10, 64); err == nil {
+			o.CacheMinTime = time.Unix(ts, 0).UnixNano()
+		} else {
+			fmt.Printf("--cache-max-age: invalid value '%s' (expected Go duration, unix timestamp, or 0s)\n", *cacheMaxAge)
+			badOptions = true
+		}
 	}
 
 	o.XattrCache = o.Cache == "xattr"
