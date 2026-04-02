@@ -1,6 +1,6 @@
 module github.com/josephvusich/fdf
 
-go 1.16
+go 1.25.0
 
 require (
 	github.com/dustin/go-humanize v1.0.0
@@ -10,6 +10,14 @@ require (
 	github.com/mattn/go-zglob v0.0.3
 	github.com/minio/highwayhash v1.0.2
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/sys v0.0.0-20220731174439-a90be440212d
+	golang.org/x/sys v0.42.0
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )

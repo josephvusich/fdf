@@ -1,8 +1,5 @@
 package main
 
-// #include <linux/fs.h>
-import "C"
-
 import (
 	"os"
 
@@ -21,6 +18,5 @@ func cloneFile(src, dst string) error {
 	}
 	defer df.Close()
 
-	_, _, err = unix.Syscall(unix.SYS_IOCTL, df.Fd(), C.FICLONE, sf.Fd())
-	return err
+	return unix.IoctlFileClone(int(df.Fd()), int(sf.Fd()))
 }
