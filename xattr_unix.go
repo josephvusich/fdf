@@ -3,11 +3,17 @@
 package main
 
 import (
+	"errors"
+
 	"golang.org/x/sys/unix"
 )
 
 // Linux requires the "user." namespace prefix for user-space extended attributes.
 const xattrKey = "user.com.josephvusich.fdf.hash"
+
+func xattrNotFound(err error) bool {
+	return errors.Is(err, unix.ENODATA)
+}
 
 func getXattr(path, name string) ([]byte, error) {
 	size, err := unix.Getxattr(path, name, nil)

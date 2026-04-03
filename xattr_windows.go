@@ -6,6 +6,10 @@ import "errors"
 
 var errXattrNotSupported = errors.New("xattr not supported on Windows")
 
+func xattrNotFound(error) bool {
+	return false
+}
+
 func getXattr(path, name string) ([]byte, error) {
 	return nil, errXattrNotSupported
 }

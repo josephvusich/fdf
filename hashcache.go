@@ -17,6 +17,9 @@ const (
 func tryLoadCachedHash(path string, info os.FileInfo, minCacheTime int64) (cs checksum, err error) {
 	data, err := getXattr(path, xattrKey)
 	if err != nil {
+		if xattrNotFound(err) {
+			return cs, nil
+		}
 		return cs, err
 	}
 
