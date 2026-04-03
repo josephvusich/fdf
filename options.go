@@ -246,13 +246,14 @@ func (o *options) MinSize() int64 {
 
 func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs := getopt.NewFlagSet(args[0], flag.ContinueOnError)
-	fs.Usage = func() {
+	printUsage := func() {
 		fmt.Fprint(os.Stderr,
 			"usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]\n"+
 				"        [-m FIELDS] [-z BYTES] [-n LENGTH]\n"+
 				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n")
 		fs.PrintDefaults()
 	}
+	fs.Usage = func() {}
 	badOptions := false
 
 	o.Protect.DefaultInclude = false
@@ -382,7 +383,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	}
 
 	if *helpFlag {
-		fs.Usage()
+		printUsage()
 		os.Exit(0)
 	}
 
