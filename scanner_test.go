@@ -896,6 +896,121 @@ func setupTestLayout(assert *require.Assertions, l *testLayout, f func(l *testLa
 	})
 }
 
+func TestScanner_Symlinks(t *testing.T) {
+	t.Run("file symlinks are ignored", func(t *testing.T) {
+		assert := require.New(t)
+		l := &testLayout{
+			dirs: []string{"./a"},
+			content: map[string]string{
+				"foo": "foo\n",
+			},
+		}
+		setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+			target, err := filepath.Abs(filepath.Join(".", "a", "foo"))
+			assert.NoError(err)
+			assert.NoError(os.Symlink(target, filepath.Join(".", "a", "link")))
+
+			scanner := newScanner()
+			scanner.options.MatchMode = matchContent
+			scanner.options.Recursive = true
+
+			assert.NoError(scanner.Scan())
+			assert.Equal(uint64(1), scanner.totals.Files.count)
+			assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		})
+	})
+
+	t.Run("directory symlinks are not traversed", func(t *testing.T) {
+		assert := require.New(t)
+		l := &testLayout{
+			dirs: []string{"./a"},
+			content: map[string]string{
+				"foo": "foo\n",
+			},
+		}
+		setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+			target, err := filepath.Abs(filepath.Join(".", "a"))
+			assert.NoError(err)
+			assert.NoError(os.Symlink(target, filepath.Join(".", "b")))
+
+			scanner := newScanner()
+			scanner.options.MatchMode = matchContent
+			scanner.options.Recursive = true
+
+			assert.NoError(scanner.Scan())
+			assert.Equal(uint64(1), scanner.totals.Files.count)
+			assert.Equal(uint64(0), scanner.totals.Dupes.count)
+		})
+	})
+
+	t.Run("delete ignores symlinks", func(t *testing.T) {
+		assert := require.New(t)
+		l := &testLayout{
+			dirs: []string{"./a", "./b"},
+			content: map[string]string{
+				"foo": "foo\n",
+			},
+		}
+		setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+			target, err := filepath.Abs(filepath.Join(".", "a", "foo"))
+			assert.NoError(err)
+			linkPath := filepath.Join(".", "a", "link")
+			assert.NoError(os.Symlink(target, linkPath))
+
+			scanner := newScanner()
+			scanner.options.deleteDupes = true
+			scanner.options.MatchMode = matchContent
+			scanner.options.Recursive = true
+
+			assert.NoError(scanner.Scan())
+			assert.Equal(uint64(2), scanner.totals.Files.count)
+			assert.Equal(uint64(1), scanner.totals.Processed.count)
+
+			// Symlink still exists
+			linfo, err := os.Lstat(linkPath)
+			assert.NoError(err)
+			assert.NotZero(linfo.Mode() & os.ModeSymlink)
+		})
+	})
+
+	t.Run("hardlink ignores symlinks", func(t *testing.T) {
+		assert := require.New(t)
+		l := &testLayout{
+			dirs: []string{"./a", "./b"},
+			content: map[string]string{
+				"foo": "foo\n",
+			},
+		}
+		setupTestLayout(assert, l, func(l *testLayout, validate func(*testLayout)) {
+			target, err := filepath.Abs(filepath.Join(".", "a", "foo"))
+			assert.NoError(err)
+			linkPath := filepath.Join(".", "a", "link")
+			assert.NoError(os.Symlink(target, linkPath))
+
+			scanner := newScanner()
+			scanner.options.makeLinks = true
+			scanner.options.MatchMode = matchContent
+			scanner.options.Recursive = true
+
+			assert.NoError(scanner.Scan())
+			assert.Equal(uint64(2), scanner.totals.Files.count)
+			assert.Equal(uint64(1), scanner.totals.Processed.count)
+
+			// Symlink still exists and is still a symlink
+			linfo, err := os.Lstat(linkPath)
+			assert.NoError(err)
+			assert.NotZero(linfo.Mode() & os.ModeSymlink)
+
+			// Real files are now hardlinked
+			aInfo, err := os.Stat(filepath.Join(".", "a", "foo"))
+			assert.NoError(err)
+			bInfo, err := os.Stat(filepath.Join(".", "b", "foo"))
+			assert.NoError(err)
+			assert.True(os.SameFile(aInfo, bInfo))
+		})
+	})
+}
+
 func TestUSubtract(t *testing.T) {
 	assert := require.New(t)
 
