@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -73,4 +75,40 @@ func TestEqualReaders_EOFWithData_MultiChunkDifferentFinal(t *testing.T) {
 	r2 := &eofWithDataReader{data: data2}
 
 	assert.False(equalReaders(r1, r2))
+}
+
+// TestEqualFiles_SkipHeaderAndFooter_FooterLeak verifies that with both
+// --skip-header and --skip-footer set, the footer region is excluded from
+// comparison. The LimitReader limit must subtract SkipHeader as well — the
+// bytes consumed by the seek do not reduce st.Size() — otherwise the reader
+// reads SkipHeader extra bytes from the footer region.
+func TestEqualFiles_SkipHeaderAndFooter_FooterLeak(t *testing.T) {
+	assert := require.New(t)
+	dir := t.TempDir()
+
+	// File layout (20 bytes): [header:5][body:10][footer:5]
+	// With SkipHeader=5 and SkipFooter=5, only the 10-byte body should be compared.
+	header := []byte("HHHHH")
+	body := bytes.Repeat([]byte("B"), 10)
+
+	file1Data := append(append(append([]byte{}, header...), body...), []byte("XXXXX")...)
+	file2Data := append(append(append([]byte{}, header...), body...), []byte("YYYYY")...)
+
+	f1 := filepath.Join(dir, "file1")
+	f2 := filepath.Join(dir, "file2")
+	assert.NoError(os.WriteFile(f1, file1Data, 0644))
+	assert.NoError(os.WriteFile(f2, file2Data, 0644))
+
+	st1, err := os.Stat(f1)
+	assert.NoError(err)
+	st2, err := os.Stat(f2)
+	assert.NoError(err)
+
+	r1 := newFileRecord(f1, st1, f1, "")
+	r2 := newFileRecord(f2, st2, f2, "")
+
+	o := &options{SkipHeader: 5, SkipFooter: 5}
+
+	// Files differ only in the footer, which should be skipped.
+	assert.True(equalFiles(r1, r2, o))
 }

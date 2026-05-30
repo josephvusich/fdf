@@ -122,7 +122,7 @@ func (o *options) OpenFile(path string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return newLimitReadCloser(f, st.Size()-o.SkipFooter), nil
+	return newLimitReadCloser(f, st.Size()-o.SkipHeader-o.SkipFooter), nil
 }
 
 type limitReadCloser struct {
