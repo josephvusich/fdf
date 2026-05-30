@@ -44,8 +44,12 @@ func equalReaders(f1, f2 io.Reader) bool {
 		n1, err1 := f1.Read(buf1)
 		n2, err2 := f2.Read(buf2)
 
+		// io.Reader allows Read to return n > 0 alongside io.EOF. Neither
+		// *os.File nor bufio.Reader (in the buffered path used here) emits
+		// that pattern with the current reader chain, but compare the
+		// trailing data anyway to stay correct under any future change.
 		if err1 == io.EOF && err2 == io.EOF {
-			return true
+			return n1 == n2 && bytes.Equal(buf1[:n1], buf2[:n2])
 		}
 
 		if err1 != nil || err2 != nil {
