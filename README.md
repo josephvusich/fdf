@@ -25,6 +25,10 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
         [-m FIELDS] [-z BYTES] [-n LENGTH]
         [--protect PATTERN] [--unprotect PATTERN] [directory ...]
 
+       If no directories are given, the scan list is auto-filled from any
+       *-dir options other than --exclude-dir, else the current directory
+       is scanned. Every *-dir option must overlap a scanned directory.
+
   -a, --clone                (verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)
   -c, --copy                 (verb) split existing hardlinks via copy
                              mutually exclusive with --ignore-hardlinks
@@ -33,6 +37,7 @@ usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]
   -t, --dry-run              don't actually do anything, just show what would be done
       --exclude GLOB         exclude files matching GLOB from scanning
       --exclude-dir DIR      exclude DIR from scanning, throws error if DIR does not exist
+                             never adds DIR to the scan list
       --help                 show this help screen and exit
       --if-kept GLOB         only remove files if the 'kept' file matches the provided GLOB
       --if-kept-dir DIR      only remove files if the 'kept' file is a descendant of DIR

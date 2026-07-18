@@ -76,6 +76,9 @@ type options struct {
 
 	Recursive bool
 
+	// --*-dir arguments in flag order, captured during ParseArgs
+	dirFlagArgs []dirFlagArg
+
 	minSize    int64
 	SkipHeader int64
 	SkipFooter int64
@@ -250,7 +253,10 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		fmt.Fprint(os.Stderr,
 			"usage: fdf [--clone | --copy | --delete | --link] [-hqrtv]\n"+
 				"        [-m FIELDS] [-z BYTES] [-n LENGTH]\n"+
-				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n")
+				"        [--protect PATTERN] [--unprotect PATTERN] [directory ...]\n\n"+
+				"       If no directories are given, the scan list is auto-filled from any\n"+
+				"       *-dir options other than --exclude-dir, else the current directory\n"+
+				"       is scanned. Every *-dir option must overlap a scanned directory.\n\n")
 		fs.PrintDefaults()
 	}
 	fs.Usage = func() {}
@@ -268,6 +274,10 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	mustKeep, mustNotKeep := o.MustKeep.FlagValues(globMatcher)
 	mustKeepDir, mustNotKeepDir := o.MustKeep.FlagValues(globMatcherFromDir)
 
+	recordDir := func(v flag.Value, name string, seedScan bool) flag.Value {
+		return &dirFlagRecorder{inner: v, flagName: name, seedScan: seedScan, dest: &o.dirFlagArgs}
+	}
+
 	fs.BoolVar(&o.clone, "clone", false, "(verb) create copy-on-write clones instead of hardlinks (not supported on all filesystems)")
 	fs.BoolVar(&o.splitLinks, "copy", false, "(verb) split existing hardlinks via copy\nmutually exclusive with --ignore-hardlinks")
 	fs.BoolVar(&o.Recursive, "recursive", false, "traverse subdirectories")
@@ -283,20 +293,20 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 	fs.Int64Var(&o.SkipHeader, "skip-header", 0, "skip `LENGTH` bytes at the beginning of each file when comparing")
 	fs.Int64Var(&o.SkipFooter, "skip-footer", 0, "skip `LENGTH` bytes at the end of each file when comparing")
 	fs.Var(exclude, "exclude", "exclude files matching `GLOB` from scanning")
-	fs.Var(excludeDir, "exclude-dir", "exclude `DIR` from scanning, throws error if DIR does not exist")
+	fs.Var(recordDir(excludeDir, "exclude-dir", false), "exclude-dir", "exclude `DIR` from scanning, throws error if DIR does not exist\nnever adds DIR to the scan list")
 	fs.Var(include, "include", "include `GLOB`, opposite of --exclude")
-	fs.Var(includeDir, "include-dir", "include `DIR`, throws error if DIR does not exist")
+	fs.Var(recordDir(includeDir, "include-dir", true), "include-dir", "include `DIR`, throws error if DIR does not exist")
 	fs.Var(protect, "protect", "prevent files matching glob `PATTERN` from being modified or deleted\n"+
 		"may appear more than once to support multiple patterns\n"+
 		"rules are applied in the order specified")
 	fs.Var(protect, "preserve", "(deprecated) alias for --protect `PATTERN`")
-	fs.Var(protectDir, "protect-dir", "similar to --protect 'DIR/**/*', but throws error if `DIR` does not exist")
+	fs.Var(recordDir(protectDir, "protect-dir", true), "protect-dir", "similar to --protect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(unprotect, "unprotect", "remove files added by --protect\nmay appear more than once\nrules are applied in the order specified")
-	fs.Var(unprotectDir, "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
+	fs.Var(recordDir(unprotectDir, "unprotect-dir", true), "unprotect-dir", "similar to --unprotect 'DIR/**/*', but throws error if `DIR` does not exist")
 	fs.Var(mustKeep, "if-kept", "only remove files if the 'kept' file matches the provided `GLOB`")
 	fs.Var(mustNotKeep, "if-not-kept", "only remove files if the 'kept' file does NOT match the provided `GLOB`")
-	fs.Var(mustKeepDir, "if-kept-dir", "only remove files if the 'kept' file is a descendant of `DIR`")
-	fs.Var(mustNotKeepDir, "if-not-kept-dir", "only remove files if the 'kept' file is NOT a descendant of `DIR`")
+	fs.Var(recordDir(mustKeepDir, "if-kept-dir", true), "if-kept-dir", "only remove files if the 'kept' file is a descendant of `DIR`")
+	fs.Var(recordDir(mustNotKeepDir, "if-not-kept-dir", true), "if-not-kept-dir", "only remove files if the 'kept' file is NOT a descendant of `DIR`")
 	fs.StringVar(&o.TimestampBehavior, "timestamps", TimestampOlder, "`MODE` must be one of "+keysToStringList(validTimestampFlags))
 	matchSpec := fs.String("match", "", "Evaluate `FIELDS` to determine file equality, where valid fields are:\n"+
 		"  name (case insensitive)\n"+
@@ -382,6 +392,14 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		badOptions = true
 	}
 
+	if wd, wdErr := os.Getwd(); wdErr != nil {
+		fmt.Println("unable to resolve working directory:", wdErr)
+		badOptions = true
+	} else if dirs, err = resolveScanDirs(fs.Args(), o.dirFlagArgs, wd, o.Recursive); err != nil {
+		fmt.Println(err)
+		badOptions = true
+	}
+
 	if *helpFlag {
 		printUsage()
 		os.Exit(0)
@@ -391,7 +409,7 @@ func (o *options) ParseArgs(args []string) (dirs []string) {
 		os.Exit(1)
 	}
 
-	return fs.Args()
+	return dirs
 }
 
 func globMatcher(pattern string) (matchers.Matcher, error) {
@@ -415,6 +433,138 @@ func globMatcherFromDir(dir string) (matchers.Matcher, error) {
 		return nil, fmt.Errorf("not a directory: %s", dir)
 	}
 	return glob.NewMatcher(filepath.Join(abs, "**", "*"))
+}
+
+// dirFlagArg records a single --*-dir flag occurrence, in flag order.
+type dirFlagArg struct {
+	flagName string // long flag name without dashes, e.g. "protect-dir"
+	value    string // directory as typed by the user
+	seedScan bool   // every -dir flag except exclude-dir seeds the scan list
+}
+
+// dirFlagRecorder wraps the flag.Value returned by RuleSet.FlagValues for
+// the --*-dir flags, recording each raw argument so ParseArgs can auto-fill
+// and validate scan roots. Set only records values the inner matcher accepts,
+// so every recorded value is an existing directory.
+type dirFlagRecorder struct {
+	inner    flag.Value
+	flagName string
+	seedScan bool
+	dest     *[]dirFlagArg
+}
+
+func (d *dirFlagRecorder) Set(value string) error {
+	if err := d.inner.Set(value); err != nil {
+		return err
+	}
+	*d.dest = append(*d.dest, dirFlagArg{flagName: d.flagName, value: value, seedScan: d.seedScan})
+	return nil
+}
+
+// String must tolerate a zero-value receiver: flag.PrintDefaults probes a
+// reflect-created zero value of each flag's type to detect default values.
+func (d *dirFlagRecorder) String() string {
+	if d == nil || d.inner == nil {
+		return ""
+	}
+	return d.inner.String()
+}
+
+// isPathAncestor reports whether descendant is strictly inside ancestor.
+// Both must be absolute, cleaned paths. Purely lexical: no symlink
+// resolution, no case folding (consistent with globMatcherFromDir).
+func isPathAncestor(ancestor, descendant string) bool {
+	if len(descendant) <= len(ancestor) || !strings.HasPrefix(descendant, ancestor) {
+		return false
+	}
+	if strings.HasSuffix(ancestor, string(filepath.Separator)) {
+		return true // filesystem root: "/" on Unix, `C:\` on Windows
+	}
+	return descendant[len(ancestor)] == filepath.Separator
+}
+
+// resolveScanDirs determines the effective scan roots and validates that
+// every --*-dir flag value overlaps (equals, contains, or is contained by)
+// at least one of them.
+//
+// If positionals is non-empty it is returned verbatim (no auto-fill).
+// Otherwise the list is auto-filled from the seeding -dir flags in flag
+// order, deduplicated by absolute path (first as-typed form wins); when
+// recursive, auto-filled roots nested inside another auto-filled root are
+// dropped to avoid walking them twice. If nothing seeds the list, nil is
+// returned and validation runs against wd (scanner.Scan's default).
+func resolveScanDirs(positionals []string, dirFlags []dirFlagArg, wd string, recursive bool) ([]string, error) {
+	abs := func(p string) string {
+		if filepath.IsAbs(p) {
+			return filepath.Clean(p)
+		}
+		return filepath.Join(wd, p)
+	}
+
+	dirs := positionals
+	if len(dirs) == 0 {
+		seen := map[string]struct{}{}
+		var seeded, seededAbs []string
+		for _, d := range dirFlags {
+			if !d.seedScan {
+				continue
+			}
+			a := abs(d.value)
+			if _, dup := seen[a]; dup {
+				continue
+			}
+			seen[a] = struct{}{}
+			seeded = append(seeded, d.value)
+			seededAbs = append(seededAbs, a)
+		}
+		if recursive {
+			var keep []string
+			for i := range seededAbs {
+				nested := false
+				for j := range seededAbs {
+					if i != j && isPathAncestor(seededAbs[j], seededAbs[i]) {
+						nested = true
+						break
+					}
+				}
+				if !nested {
+					keep = append(keep, seeded[i])
+				}
+			}
+			seeded = keep
+		}
+		dirs = seeded
+	}
+
+	roots := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		roots = append(roots, abs(d))
+	}
+	display := dirs
+	if len(roots) == 0 {
+		roots = []string{filepath.Clean(wd)}
+		display = []string{wd}
+	}
+
+	var errs []error
+	for _, d := range dirFlags {
+		a := abs(d.value)
+		overlaps := false
+		for _, r := range roots {
+			if r == a || isPathAncestor(r, a) || isPathAncestor(a, r) {
+				overlaps = true
+				break
+			}
+		}
+		if !overlaps {
+			errs = append(errs, fmt.Errorf("--%s \"%s\" does not overlap any scanned directory (scanned: %s)",
+				d.flagName, d.value, strings.Join(display, ", ")))
+		}
+	}
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return dirs, nil
 }
 
 func (o *options) globPattern() string {
